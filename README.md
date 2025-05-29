@@ -1,0 +1,1 @@
+This repository houses the implementation of AWE Electronics online store platform
