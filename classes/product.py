@@ -33,3 +33,5 @@ class Product:
         return (f"Product[ID={self.id}, Name={self.name}, Description={self.description}, "
                 f"Price=${self.price:.2f}, Quantity={self.quantity}, "
                 f"Category={self.category.name}, Brand={self.brand.name}]")
+    
+    
