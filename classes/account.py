@@ -30,6 +30,10 @@ class Account(InboxInterface):
     def accountID(self):
         return self.accountID
 
+    @accountID.setter
+    def accountID(self, value: str):
+        raise AttributeError("Cannot set Account ID manually.")
+
     @property
     def email(self):
         return self.email
@@ -106,9 +110,11 @@ class Account(InboxInterface):
                 return True
         return False
     
-    def loadDetails():
-        
-        return None
+    def loadDetails(self):
+        print(f"AccountID: {self.accountID}")
+        print(f"Username: {self.username}")
+        print(f"Email: {self.email}")
+        print(f"Street Address: {self.streetAddress}")
     
     def showInboxMessage():
         
