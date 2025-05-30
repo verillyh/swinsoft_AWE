@@ -102,8 +102,17 @@ class Account(InboxInterface):
     
     @staticmethod
     def modifyAccountDetail(self, field: str, newValue: str):
-        
-        return bool
+        try:
+            if field in ["email", "username", "streetAddress", "password"]:
+                setattr(self, field, newValue)
+                print(f"{field} updated sucessfully.")
+                return True
+            else:
+                print(f"Cannot modify '{field}', not allowed or read-only.")
+                return False
+        except ValueError as ve:
+            print(f"Update failed: {ve}")
+            return False
     
     @staticmethod
     def verifyCredentials(cls, usernameEmail: str, password: str):
