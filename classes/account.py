@@ -95,8 +95,10 @@ class Account(InboxInterface):
     
     @classmethod
     def login(cls, usernameEmail: str, password: str):
-
-        return None
+        if cls.verifyCredentials(usernameEmail, password):
+            print("Login Successful.")
+        else:
+            print("Wrong Credentials.")
     
     @staticmethod
     def modifyAccountDetail(self, field: str, newValue: str):
