@@ -12,6 +12,7 @@ class InboxInterface(ABC):
 class Account(InboxInterface):
     _id_counter = itertools.count(start=0)
     _users = {} 
+    _orders = []
 
     def __init__(self, accountPrivilege: int, email: str, streetAddress: str, username: str, passwordHash: str):
         self.accountID = next(Account._id_counter)
@@ -20,8 +21,6 @@ class Account(InboxInterface):
         self.streetAddress = streetAddress
         self.username = username
         self.passwordHash = passwordHash
-        self.orderHistory = []
-        self.inboxMessage = []
 
     @staticmethod
     def isValidEmail(email: str):
@@ -136,7 +135,10 @@ class Account(InboxInterface):
         print("Inbox Message(s):")
         for i, msg in enumerate(self.inboxMessage, start=1):
             status = "Read" if msg.isRead else "Unread"
-            print(f"{i}. {msg.message} [{status}]")        
+            print(f"{i}. {msg.message} [{status}]") 
+
+    def listOrders(self):
+        print("You do not have permission to view orders.")       
     
 class ownerAccount(Account):
     def __init__(self, email, streetAddress, username, password):
@@ -158,6 +160,14 @@ class ownerAccount(Account):
     def removeStaff():
 
         return None
+    
+    def listOrders(self):
+        if not Account._orders:
+            print("No orders in the system.")
+        else:
+            print("All store order(s):")
+            for order in Account._orders:
+                print(f"- Order #{order['orderID']} | Customer: {order['username']} | Total: ${order['totalCost']}")
 
 class staffAccount(Account):
     def __init__(self, email, streetAddress, username, password):
@@ -165,9 +175,26 @@ class staffAccount(Account):
         self.receipt = []
         self.invoice = []
 
+    def listOrders(self):
+        if not Account._orders:
+            print("No orders in the system.")
+        else:
+            print("All store order(s):")
+            for order in Account._orders:
+                print(f"- Order #{order['orderID']} | Customer: {order['username']} | Total: ${order['totalCost']}")
+
 class customerAccount(Account):
     def __init__(self, email, streetAddress, username, password, cart):
         super().__init__(3, email, streetAddress, username, password)
         self.receipt = []
         self.invoice = []
         self.cart = cart
+
+    def listOrders(self):
+        orders = [order for order in Account._orders if order["username"] == self.username]
+        if not orders:
+            print("You have no order.")
+        else:
+            print("Your order(s):")
+            for order in orders:
+                print(f"- order #{order['orderID']} | Total: ${order['totalCost']}")
