@@ -2,6 +2,7 @@ import itertools
 import re
 from filter import Statisticable
 from abc import ABC, abstractmethod
+from inboxMessage import InboxMessage
 
 class InboxInterface(ABC):
     @abstractmethod
@@ -116,9 +117,15 @@ class Account(InboxInterface):
         print(f"Email: {self.email}")
         print(f"Street Address: {self.streetAddress}")
     
-    def showInboxMessage():
+    def showInboxMessage(self):
+        if not self.inboxMessage:
+            print("Inbox is empty.")
+            return
         
-        return None
+        print("Inbox Message(s):")
+        for i, msg in enumerate(self.inboxMessage, start=1):
+            status = "Read" if msg.isRead else "Unread"
+            print(f"{i}. {msg.message} [{status}]")        
     
 class ownerAccount(Account):
     def __init__(self, email, streetAddress, username, password):
