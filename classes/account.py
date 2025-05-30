@@ -99,9 +99,12 @@ class Account(InboxInterface):
         return bool
     
     @staticmethod
-    def verifyCredentials(cls):
-
-        return bool
+    def verifyCredentials(cls, usernameEmail: str, password: str):
+        hashPassword = cls.hashPassword(cls, password)
+        for user in cls.users.values():
+            if (user.username == usernameEmail or user.email == usernameEmail) and user.passwordHash == hashPassword:
+                return True
+        return False
     
     def loadDetails():
         
