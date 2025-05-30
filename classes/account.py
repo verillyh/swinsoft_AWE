@@ -1,14 +1,17 @@
 import itertools
+import re
 from filter import Statisticable
 from abc import ABC, abstractmethod
 
 class InboxInterface(ABC):
     @abstractmethod
-    def showInboxMessage():
+    def showInboxMessage(self):
         pass
 
 class Account(InboxInterface):
     _id_counter = itertools.count(start=0)
+    _users = {} 
+
     def __init__(self, accountPrivilege: int, email: str, streetAddress: str, username: str, passwordHash: str):
         self.accountID = next(Account._id_counter)
         self.accountPrivilege = accountPrivilege
@@ -20,18 +23,30 @@ class Account(InboxInterface):
         self.inboxMessage = []
 
     @staticmethod
-    def hashPassword():
-
-        return str
-
+    def hashPassword(password: str):
+        return f"hashed_{password}"
+    
     @staticmethod
-    def login():
+    def isValidEmail(email: str):
+        return re.match(r"[^@]+@[^@]+\.[^@]+", email) is not None
 
-        return None
-
+    @classmethod
+    def signup(cls, email: str, streetAddress: str, username: str, password: str):
+        if email in [user.email for user in cls._users.values()]:
+            print("Email already in use.")
+            return
+        if not cls.isValidEmail(email):
+            print("Invalid email format.")
+            return
+        
+        hashPassword = cls.hashPassword(password)
+        newUser = cls(email, streetAddress, username, hashPassword)
+        cls.users[username] = newUser
+        print("Signup sucessfully.")
+    
     @staticmethod
-    def signup():
-
+    def login(username: str, password: str):
+        
         return None
     
     @staticmethod
