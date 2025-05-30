@@ -144,6 +144,7 @@ class ownerAccount(Account):
     def __init__(self, email, streetAddress, username, password):
         super().__init__(1, email, streetAddress, username, password)
         self.generatedStatistics = []
+        self.staffAccounts = []
 
     def createStatistics():
         
@@ -153,13 +154,19 @@ class ownerAccount(Account):
 
         return False
     
-    def addStaff():
-
-        return None
+    def addStaff(self, staffAccount):
+        if not isinstance(staffAccount, staffAccount.__class__):
+            print("Invalid Staff Account.")
+            return
+        self.staffAccounts.append(staffAccount)
+        print(f"Staff {staffAccount.username} added.")
     
-    def removeStaff():
-
-        return None
+    def removeStaff(self, staffAccount):
+        if staffAccount in self.staffAccounts:
+            self.staffAccounts.remove(staffAccount)
+            print(f"Staff {staffAccount.username} removed.")
+        else:
+            print("Staff not found.")
     
     def listOrders(self):
         if not Account._orders:
