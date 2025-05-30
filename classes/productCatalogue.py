@@ -1,3 +1,6 @@
+
+from product import Product  
+
 class ProductCatalogue:
     def __init__(self):
         self.allProducts = []  # List[Product]
