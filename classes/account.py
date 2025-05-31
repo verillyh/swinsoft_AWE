@@ -41,8 +41,14 @@ class Account(InboxInterface):
     
     @email.setter
     def email(self, value: str):
+        value = value.strip()
         if not Account.isValidEmail(value):
             raise ValueError("Invalid email address.")
+        
+        for user in Account._users.values():
+            if user is not self and user.email.lower() == value.lower():
+                raise ValueError("Email already in use.")
+            
         self.email = value
 
     @property
@@ -51,8 +57,10 @@ class Account(InboxInterface):
     
     @streetAddress.setter
     def streetAddress(self, value: str):
-        if not value or len(value.strip()) == 0:
+        value = value.strip()
+        if value == "":
             raise ValueError("Street address cannot be empty.")
+        
         self.streetAddress = value
 
     @property
@@ -61,9 +69,17 @@ class Account(InboxInterface):
     
     @username.setter
     def username(self, value: str):
-        if not value or len(value.strip()) == 0:
+        value = value.strip()
+        if value == "":
             raise ValueError("Username cannot be empty.")
+        
+        if value in Account._users and Account._users[value] is not self:
+            raise ValueError("Username is already in use.")
+        
+        oldUsername = self.username
+        Account._users.pop(oldUsername)
         self.username = value
+        Account._users[value] = self
 
     @property
     def password(self):
@@ -71,9 +87,11 @@ class Account(InboxInterface):
     
     @password.setter
     def password(self, value: str):
+        value = value.strip()
         if len(value) < 8:
             raise ValueError("Password must be at least 8 characters.")
-        self.passwordHash = self.hashPassword(value)
+        
+        self.passwordHash = Account.hashPassword(value)
 
     @staticmethod
     def hashPassword(password: str):
@@ -81,39 +99,46 @@ class Account(InboxInterface):
 
     @classmethod
     def signup(cls, email: str, streetAddress: str, username: str, password: str):
-        if email in [user.email for user in cls._users.values()]:
-            print("Email already in use.")
-            return
-        if not cls.isValidEmail(email):
+        for user in cls._user.values():
+            if user.email.lower() == email.lower():
+                print("Email already in user.")
+                return False
+            
+        if not Account.isValidEmail(email):
             print("Invalid email format.")
-            return
+            return False
+        
+        if username in cls._users:
+            print("Username already taken.")
+            return False
         
         hashPassword = cls.hashPassword(password)
         newUser = cls(email, streetAddress, username, hashPassword)
         cls.users[username] = newUser
-        print("Signup sucessfully.")
+        return True
     
     @classmethod
     def login(cls, usernameEmail: str, password: str):
-        if cls.verifyCredentials(usernameEmail, password):
-            print("Login Successful.")
-        else:
-            print("Wrong Credentials.")
-    
+        return cls.verifyCredentials(usernameEmail, password)
+
     @staticmethod
     def modifyAccountDetail(self, field: str, newValue: str):
-        try:
-            if field in ["email", "username", "streetAddress", "password"]:
-                setattr(self, field, newValue)
-                print(f"{field} updated sucessfully.")
-                return True
-            else:
-                print(f"Cannot modify '{field}', not allowed or read-only.")
-                return False
-        except ValueError as ve:
-            print(f"Update failed: {ve}")
+        field = field.strip()
+
+        if field not in ["email", "username", "streetAddress", "password"]:
+            print(f"Cannot modify '{field}', not allowed or read-only.")
             return False
-    
+        
+        try:
+            setattr(self, field, newValue)
+            return True
+        except ValueError as ve:
+            print(ve)
+            return False
+        except Exception as e:
+            print(f"Unexpected error while modifying '{field}: {e}")
+            return False
+
     @staticmethod
     def verifyCredentials(cls, usernameEmail: str, password: str):
         hashPassword = cls.hashPassword(cls, password)
@@ -155,19 +180,41 @@ class ownerAccount(Account):
 
         return False
     
-    def addStaff(self, staffAccount):
-        if not isinstance(staffAccount, staffAccount.__class__):
-            print("Invalid Staff Account.")
-            return
-        self.staffAccounts.append(staffAccount)
-        print(f"Staff {staffAccount.username} added.")
-    
-    def removeStaff(self, staffAccount):
-        if staffAccount in self.staffAccounts:
-            self.staffAccounts.remove(staffAccount)
-            print(f"Staff {staffAccount.username} removed.")
+    def createStaff(self, email: str, streetAddress: str, username: str, password: str):
+        email = email.strip()
+        streetAddress = streetAddress.strip()
+        username = username.strip()
+        password = password.strip()
+
+        staffAccount.signup(email, streetAddress, username, password)
+
+        staff = Account._users.get(username)
+        if isinstance(staff, staffAccount):
+            self.staffAccounts.append(staff)
+            return True
         else:
-            print("Staff not found.")
+            return False
+    
+    def deleteStaff(self, staffID: int):
+        staffID = staffID.strip()
+        staff = None
+        for user in Account._users.values():
+            if isinstance(user, staffAccount) and user.accountID == staffID:
+                candidate = user
+                break
+
+        if staff is None:
+            print(f"No staff account found with ID '{staffID}'.")
+            return False
+        
+        if staff in self.staffAccounts:
+            self.staffAccounts.remove(staff)
+
+        username = staff.username
+        del Account._users[username]
+
+        print(f"Staff account (ID={staffID}, username='{username}') deleted successfully.")
+        return True
     
     def listOrders(self):
         if not Account._orders:
@@ -214,16 +261,57 @@ def signupUI():
     password = input ("Password: ").strip()
     streetAddress = input("StreetAddress: ").strip()
 
-    Account.signup(email, streetAddress, username, password)
-    print()
+    if Account.signup(email, streetAddress, username, password):
+        print("Sign up successfully.")
+    else:
+        print("Sign up failed.")
 
 def loginUI():
     print("---Login---")
     usernameEmail = input("Username or Email: ").strip()
     password = input("Password: ").strip()
 
-    if Account.verifyCredentials(usernameEmail, password):
+    if Account.login(usernameEmail, password):
         print("Login Successful.")
     else:
         print("Wrong Credentials. Please try again.")
-        return None
+
+def modifyAccountUI(user):
+    print("---Modify Account Detail---")
+    print("Fileds you can change: email, username, password, streetAddress")
+    field = input("Enter field to modify: ").strip()
+
+    if field not in ["email", "username", "streetAddress", "password"]:
+        print(f"'{field}' is not a modifiable field.\n") 
+        return
+    
+    if field == "password":
+        newValue = input("Enter new password (at least 8 chars): ").strip()
+    else:
+        newValue = input(f"Enter new {field}: ").strip()
+
+    if Account.modifyAccountDetail(user, field, newValue):
+        print("Changed saved.\n")
+    else:
+        print("Changed failed.\n")
+
+def createStaffUI(owner: ownerAccount):
+    print("---Add Staff Account---")
+    email = input("Email: ").strip()
+    streetAddress = input("Street address: ").strip()
+    username = input("Username: ").strip()
+    password = input("Password: ").strip()
+
+    if owner.createStaff(email, streetAddress, username, password):
+        print("Staff account created.\n")
+    else:
+        print("Failed to create staff account.\n")
+
+def deleteStaffUI(owner: ownerAccount):
+    print("---Remove Staff Account---")
+    staffID = input("ID to remove: ").strip()
+
+    if owner.deleteStaff(staffID):
+        print("Staff account removed.\n")
+    else:
+        print("Failed to remove staff account.\n")
