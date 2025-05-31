@@ -216,3 +216,14 @@ def signupUI():
 
     Account.signup(email, streetAddress, username, password)
     print()
+
+def loginUI():
+    print("---Login---")
+    usernameEmail = input("Username or Email: ").strip()
+    password = input("Password: ").strip()
+
+    if Account.verifyCredentials(usernameEmail, password):
+        print("Login Successful.")
+    else:
+        print("Wrong Credentials. Please try again.")
+        return None
