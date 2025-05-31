@@ -1,5 +1,6 @@
 import itertools
 import re
+import sys
 from filter import Statisticable
 from abc import ABC, abstractmethod
 from inboxMessage import InboxMessage
@@ -205,3 +206,13 @@ class customerAccount(Account):
             print("Your order(s):")
             for order in orders:
                 print(f"- order #{order['orderID']} | Total: ${order['totalCost']}")
+
+def signupUI():
+    print("---Signing Up----")
+    email = input("Email: ").strip()
+    username = input("Username: ").strip()
+    password = input ("Password: ").strip()
+    streetAddress = input("StreetAddress: ").strip()
+
+    Account.signup(email, streetAddress, username, password)
+    print()
