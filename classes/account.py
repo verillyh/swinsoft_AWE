@@ -16,12 +16,18 @@ class Account(InboxInterface):
     _orders = []
 
     def __init__(self, accountPrivilege: int, email: str, streetAddress: str, username: str, passwordHash: str):
-        self.accountID = next(Account._id_counter)
+        self._accountID = next(Account._id_counter)
         self.accountPrivilege = accountPrivilege
+
+        self._email = None
+        self._streetAddress = None
+        self._username = None
+        self._passwordHash = passwordHash
+
         self.email = email
         self.streetAddress = streetAddress
         self.username = username
-        self.passwordHash = passwordHash
+        Account._users[self._username] = self
 
     @staticmethod
     def isValidEmail(email: str):
@@ -29,15 +35,15 @@ class Account(InboxInterface):
 
     @property
     def accountID(self):
-        return self.accountID
+        return self._accountID
 
     @accountID.setter
-    def accountID(self, value: str):
+    def accountID(self, value: int):
         raise AttributeError("Cannot set Account ID manually.")
 
     @property
     def email(self):
-        return self.email
+        return self._email
     
     @email.setter
     def email(self, value: str):
@@ -46,14 +52,14 @@ class Account(InboxInterface):
             raise ValueError("Invalid email address.")
         
         for user in Account._users.values():
-            if user is not self and user.email.lower() == value.lower():
+            if user is not self and user._email.lower() == value.lower():
                 raise ValueError("Email already in use.")
             
-        self.email = value
+        self._email = value
 
     @property
     def streetAddress(self):
-        return self.streetAddress
+        return self._streetAddress
     
     @streetAddress.setter
     def streetAddress(self, value: str):
@@ -61,11 +67,11 @@ class Account(InboxInterface):
         if value == "":
             raise ValueError("Street address cannot be empty.")
         
-        self.streetAddress = value
+        self._streetAddress = value
 
     @property
     def username(self):
-        return self.username
+        return self._username
     
     @username.setter
     def username(self, value: str):
@@ -76,9 +82,10 @@ class Account(InboxInterface):
         if value in Account._users and Account._users[value] is not self:
             raise ValueError("Username is already in use.")
         
-        oldUsername = self.username
-        Account._users.pop(oldUsername)
-        self.username = value
+        if self._username is not None and self._username in Account._users:
+            Account._users.pop(self._username)
+
+        self._username = value
         Account._users[value] = self
 
     @property
@@ -91,7 +98,7 @@ class Account(InboxInterface):
         if len(value) < 8:
             raise ValueError("Password must be at least 8 characters.")
         
-        self.passwordHash = Account.hashPassword(value)
+        self._passwordHash = Account.hashPassword(value)
 
     @staticmethod
     def hashPassword(password: str):
@@ -99,12 +106,12 @@ class Account(InboxInterface):
 
     @classmethod
     def signup(cls, email: str, streetAddress: str, username: str, password: str):
-        for user in cls._user.values():
-            if user.email.lower() == email.lower():
+        for user in cls._users.values():
+            if user._email.lower() == email.lower():
                 print("Email already in user.")
                 return False
             
-        if not Account.isValidEmail(email):
+        if not cls.isValidEmail(email):
             print("Invalid email format.")
             return False
         
@@ -113,8 +120,8 @@ class Account(InboxInterface):
             return False
         
         hashPassword = cls.hashPassword(password)
-        newUser = cls(email, streetAddress, username, hashPassword)
-        cls.users[username] = newUser
+        newUser = cls(3, email, streetAddress, username, hashPassword)
+        cls._users[username] = newUser
         return True
     
     @classmethod
@@ -140,37 +147,59 @@ class Account(InboxInterface):
             return False
 
     @staticmethod
-    def verifyCredentials(cls, usernameEmail: str, password: str):
-        hashPassword = cls.hashPassword(cls, password)
-        for user in cls.users.values():
-            if (user.username == usernameEmail or user.email == usernameEmail) and user.passwordHash == hashPassword:
+    def verifyCredentials(usernameEmail: str, password: str):
+        hashedPassword = Account.hashPassword(password)
+        for user in Account._users.values():
+            if (user._username == usernameEmail or user._email == usernameEmail) and user._passwordHash == hashedPassword:
                 return True
         return False
     
     def loadDetails(self):
-        print(f"AccountID: {self.accountID}")
-        print(f"Username: {self.username}")
-        print(f"Email: {self.email}")
-        print(f"Street Address: {self.streetAddress}")
+        print(f"AccountID: {self._accountID}")
+        print(f"Username: {self._username}")
+        print(f"Email: {self._email}")
+        print(f"Street Address: {self._streetAddress}")
     
     def showInboxMessage(self):
-        if not self.inboxMessage:
+        msgs = getattr(self, "inboxMessage", [])
+        if not msgs:
             print("Inbox is empty.")
             return
-        
+
         print("Inbox Message(s):")
-        for i, msg in enumerate(self.inboxMessage, start=1):
+        for i, msg in enumerate(msgs, start=1):
             status = "Read" if msg.isRead else "Unread"
-            print(f"{i}. {msg.message} [{status}]") 
+            print(f"{i}. {msg.message} [{status}]")    
 
     def listOrders(self):
-        print("You do not have permission to view orders.")       
+        print("You do not have permission to view orders.")  
     
 class ownerAccount(Account):
     def __init__(self, email, streetAddress, username, password):
         super().__init__(1, email, streetAddress, username, password)
         self.generatedStatistics = []
         self.staffAccounts = []
+
+    @classmethod
+    def signup(cls, email: str, streetAddress: str, username: str, password: str):
+        for user in Account._users.values():
+            if user._email.lower() == email.lower():
+                print("Email already in use.")
+                return False
+
+        if not cls.isValidEmail(email):
+            print("Invalid email format.")
+            return False
+
+        if username in Account._users:
+            print("Username already taken.")
+            return False
+
+        hashedPassword = cls.hashPassword(password)
+
+        newOwner = cls(email, streetAddress, username, hashedPassword)
+        print("Owner signup successful.")
+        return True
 
     def createStatistics():
         
@@ -200,7 +229,7 @@ class ownerAccount(Account):
         staff = None
         for user in Account._users.values():
             if isinstance(user, staffAccount) and user.accountID == staffID:
-                candidate = user
+                staff = user
                 break
 
         if staff is None:
@@ -243,7 +272,7 @@ class customerAccount(Account):
         super().__init__(3, email, streetAddress, username, password)
         self.receipt = []
         self.invoice = []
-        self.cart = cart
+        self.cart = cart if cart is not None else []
 
     def listOrders(self):
         orders = [order for order in Account._orders if order["username"] == self.username]
