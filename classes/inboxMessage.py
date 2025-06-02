@@ -1,13 +1,11 @@
 import itertools
 
-class inboxMessage:
-    _id_counter = itertools.count(start=-1)
-    def __init__(self, message):
-        self.inboxMessageID = next(inboxMessage._id_counter)
+class InboxMessage:
+    _id_counter = itertools.count(start=0)
+    def __init__(self, message: str):
+        self.inboxMessageID = next(InboxMessage._id_counter)
         self.message = message
         self.isRead = False       
 
-    def toggleRead():
-
-        return None
-    
+    def toggleRead(self):
+        self.isRead = not self.isRead
