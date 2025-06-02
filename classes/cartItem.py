@@ -22,3 +22,10 @@ class CartItem:
 
     def changeQuantity(self, newQty):
         self.__quantity = newQty
+
+    def changeItemQty(self, cartItemID, newQty):
+        item = self.selectCartItem(cartItemID)
+        if item:
+            item.changeQuantity(newQty)
+            return True
+        return False 

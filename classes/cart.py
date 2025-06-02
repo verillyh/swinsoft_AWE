@@ -9,6 +9,7 @@ class Cart:
     def __init__(self):
         self.__cartID = next(Cart.__id_counter)
         self.__cartItems = []
+        self.customer_id = 0
 
     def addToCart(self, product, quantity):
         for item in self.__cartItems:
@@ -33,12 +34,6 @@ class Cart:
                 return item
         return None
     
-    def changeItemQty(self, cartItemID, newQty):
-        item = self.selectCartItem(cartItemID)
-        if item:
-            item.changeQuantity(newQty)
-            return True
-        return False 
     
     def listProductsInCart(self):
         if not self.__cartItems:
@@ -59,7 +54,7 @@ class Cart:
         print(f"{'YOUR CART':^52}")
         print("#" + "=" * 50)
         
-        cart_items = self._Cart__cartItems  # Accessing private attribute (or make a getter)
+        cart_items = self._Cart__cartItems 
         if not cart_items:
             print("Cart is empty.\n")
         else:
@@ -102,7 +97,6 @@ class Cart:
         print(f"{'CHECKOUT':^52}")
         print("#" + "=" * 50)
 
-        # Shipping details
         print("\n# " + "=" * 50)
         print(f"{'ENTER SHIPPING DETAILS':^52}")
         print("# " + "=" * 50)
@@ -110,7 +104,32 @@ class Cart:
         phone_number = input("Phone Number      : ")
         address = input("Shipping Address  : ")
 
-        # Payment details
+        print("\nShipping info recorded successfully.")
+
+
+        choice = input("\n[1] Place the order\n[0] Cancel\n\nEnter choice: ")
+        if choice.strip() != "1":
+            print("Order cancelled.")
+            return
+        
+        print("\n# " + "=" * 50)
+        print(f"{'INVOICE':^52}")
+        print("# " + "=" * 50)
+        print("-" * 30)
+
+        for item in self.getCartItems():
+            prod = item.getProduct()
+            print(f"{prod['name']} x{item.getQuantity()} - ${item.getTotalPrice()}")
+        total = sum(item.getTotalPrice() for item in self.getCartItems())
+        print(f"Total: ${total}")
+            
+        choice = input("\n[1] Pay the invoice\n[0] Cancel\n\nEnter choice: ")
+        if choice.strip() != "1":
+            print("Order cancelled.")
+            return
+
+        order = Order(customerId=self.customer_id, items=self.getCartItems(), orderStatus=OrderStatus.PENDING)
+
         print("\n# " + "=" * 50)
         print(f"{'ENTER PAYMENT DETAILS':^52}")
         print("# " + "=" * 50)
@@ -133,29 +152,7 @@ class Cart:
             print("Payment failed. Transaction invalid.")
             return
 
-        order = Order(customerId=self.customer_id, items=self.getCartItems(), orderStatus=OrderStatus.PAID)
-
-        # Invoice
-        print("\n# " + "=" * 50)
-        print(f"{'INVOICE':^52}")
-        print("# " + "=" * 50)
-        print("-" * 30)
-        for item in order.getItems():
-            prod = item.getProduct()
-            print(f"{prod['name']} x{item.getQuantity()} - ${item.getTotalPrice()}")
-        print(f"Total: ${order.getTotalCost()}")
-
-        choice = input("\n[1] Place the order\n[0] to Cancel\n\nEnter choice: ")
-        if choice.strip() == "1":
-            self.getCartItems().clear()
-            order.notifyStaff()
-            print("\n" + payment.generateReceipt(order))
-        else:
-            print("Order cancelled.")
-  
-
-    
-    
-    
-
-    
+        order.updateStatus(updaterAccoutnId=0, status=OrderStatus.PAID)
+        self.getCartItems().clear()
+        order.notifyStaff()
+        print("\n" + payment.generateReceipt(order))
