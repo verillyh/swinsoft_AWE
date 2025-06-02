@@ -4,11 +4,24 @@ class ProductCatalogue:
     def __init__(self):
         self.allProducts = []
 
+    def removeProduct(self, p: Product) -> bool:
+        if isinstance(p, Product) and p in self.allProducts:
+            self.allProducts.remove(p)
+            return True
+        return False
+
     def addProduct(self, p: Product) -> bool:
         if isinstance(p, Product):
             self.allProducts.append(p)
             return True
         return False
+    
+    def fetchProductDetail(self, productId: int):
+        for product in self.allProducts:
+            if product.id == productId:
+                return product
+        return None  # Return None if no matching product is found
+
 
     def productUI(self):
         output = "\n# ==================================================\n"
@@ -58,6 +71,73 @@ class ProductCatalogue:
         else:
             print("\nProduct not added.")
 
+    def removeProductUI(self):
+        print("\n# ==================================================")
+        print("                REMOVE PRODUCT")
+        print("# ==================================================\n")
+
+        show =""
+        # Display current products
+        for product in self.allProducts:
+            
+            show += str(product) + "\n\n"
+        print(show)
+
+        # Ask for product ID to remove
+        try:
+            product_id = int(input("Enter Product ID to remove or [0] to return home: "))
+        except ValueError:
+            print("❌ Invalid input. Please enter a valid number.")
+            return
+
+        if product_id == 0:
+            print("Returning to home...\n")
+            return
+
+        # Search in product list
+        product = self.fetchProductDetail(product_id)
+
+        if product:
+            confirm = input(f"Are you sure you want to remove \"{product.name}\"? (y/n): ").strip().lower()
+            if confirm == 'y':
+                self.removeProduct(product)
+                print(f"\nProduct \"{product.name}\" removed successfully.")
+            else:
+                print("\nProduct removal cancelled.")
+        else:
+            print("\n❌ Product not found.\n")
+
+    def fetchProductDetailsUI(self):
+        print("\n# ==================================================")
+        print("               SEARCH PRODUCT RESULT")
+        print("# ==================================================\n")
+
+        # Ask for product ID
+        try:
+            product_id = int(input("Enter Product ID to view details or [0] to return home: "))
+        except ValueError:
+            print("❌ Invalid input. Please enter a valid number.")
+            return
+
+        if product_id == 0:
+            print("Returning to home...\n")
+            return
+
+        # Search in product list
+        product = self.fetchProductDetail(product_id)
+
+        if product:
+            print(f"\n[{product.id}] {product.name}")
+            print(f"Brand     : {product.brand.name}")
+            print(f"Category  : {product.category.name}")
+            print(f"Price     : ${product.price:.2f}")
+            print(f"Stock     : {product.quantity}")
+            print(f"Description: {product.description}")
+            print("\n--------------------------------------------------")
+        else:
+            print("\n❌ Product not found.\n")
+
+
 
 # ================== MAIN ==================
 
@@ -69,10 +149,11 @@ if __name__ == "__main__":
     catalogue.addProduct(Product("Phone", "Latest 5G model", 1099.50, 12, Category.MobilePhone, Brand.B))
     catalogue.addProduct(Product("Laptop", "Gaming powerhouse", 1999.00, 5, Category.Computer, Brand.C))
 
-    # Display product UI
-    catalogue.productUI()
+# Display product UI
+#catalogue.productUI()
 
-   
+#catalogue.fetchProductDetailsUI()
 
-    # Add new product interactively
-    catalogue.addProductUI()
+# Add new product interactively
+#catalogue.addProductUI()
+catalogue.removeProductUI()
