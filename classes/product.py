@@ -30,8 +30,11 @@ class Product:
         self.brand = brand
 
     def __str__(self):
-        return (f"Product[ID={self.id}, Name={self.name}, Description={self.description}, "
-                f"Price=${self.price:.2f}, Quantity={self.quantity}, "
-                f"Category={self.category.name}, Brand={self.brand.name}]")
-    
-    
+        return (
+            f"[{self.id}] {self.name}\n"
+            f"Brand     : {self.brand.name}\n"
+            f"Category  : {self.category.name}\n"
+            f"Price     : ${self.price:.2f}\n"
+            f"Stock     : {self.quantity}\n"
+            f"Description: {self.description}"
+        )
