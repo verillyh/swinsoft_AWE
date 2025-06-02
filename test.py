@@ -1,39 +1,27 @@
 from classes.cart import Cart
-from classes.cartItem import CartItem
-from classes.order import Order, OrderStatus
-from classes.payment import Payment
 
-# 1. Sample Products
-product1 = {'id': 101, 'name': 'Laptop', 'price': 1200}
-product2 = {'id': 102, 'name': 'Mouse', 'price': 25}
+# Sample products
+product_1 = {'id': 101, 'name': 'Product_1', 'price': 1500}
+product_2 = {'id': 104, 'name': 'Product_4', 'price': 800}
 
-# 2. Create a cart and add products
-cart = Cart()
-cart.addToCart(product1, 1)
-cart.addToCart(product2, 2)
+def main():
+    print("=== SHOPPING CART DEMO ===\n")
 
+    # Create cart and simulate customer
+    cart = Cart()
+    cart.customer_id = 123  # inject required attribute
 
-print("🛒 Cart Contents:")
-print(cart.listProductsInCart())
+    # Add products
+    cart.addToCart(product_1, 1)
+    cart.addToCart(product_2, 2)
+    
+    # Display cart
+    print(">>> CART CONTENTS\n")
+    cart.cartUI()
 
-total = cart.checkout()
-print(f"\n💰 Checkout Total: ${total}")
+    # Proceed to checkout
+    print("\n>>> STARTING CHECKOUT...\n")
+    cart.checkoutUI()
 
-cart.addToCart(product1, 1)
-cart.addToCart(product2, 2)
-order = Order(customerId=1, items=cart._Cart__cartItems)
-
-# 6. Notify staff and change status
-order.notifyStaff()
-order.updateStatus(1001, OrderStatus.PAID)
-
-# 7. Process payment
-payment = Payment()
-transaction_id = payment.requestPaymentFromVendor("1234567890123456", 12, 2025, 123)
-
-if payment.validateTransaction(transaction_id):
-    receipt = payment.generateReceipt(order)
-    print("\n Receipt:")
-    print(receipt)
-else:
-    print("\n Payment failed.")
+if __name__ == "__main__":
+    main()
