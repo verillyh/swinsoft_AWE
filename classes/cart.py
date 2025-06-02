@@ -133,7 +133,7 @@ class Cart:
             print("Payment failed. Transaction invalid.")
             return
 
-        order = Order(customerId=self.customer_id, items=self.cart.getCartItems(), orderStatus=OrderStatus.PAID)
+        order = Order(customerId=self.customer_id, items=self.getCartItems(), orderStatus=OrderStatus.PAID)
 
         # Invoice
         print("\n# " + "=" * 50)
@@ -147,7 +147,7 @@ class Cart:
 
         choice = input("\n[1] Place the order\n[0] to Cancel\n\nEnter choice: ")
         if choice.strip() == "1":
-            self.cart.getCartItems().clear()
+            self.getCartItems().clear()
             order.notifyStaff()
             print("\n" + payment.generateReceipt(order))
         else:
