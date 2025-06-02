@@ -1,46 +1,159 @@
-from product import Product, Category
+from product import Product, Brand, Category
 
 class ProductCatalogue:
     def __init__(self):
-        self.allProducts = []  # List[Product]
+        self.allProducts = []
 
-    # + addProduct(p: Product): Boolean
+    def removeProduct(self, p: Product) -> bool:
+        if isinstance(p, Product) and p in self.allProducts:
+            self.allProducts.remove(p)
+            return True
+        return False
+
     def addProduct(self, p: Product) -> bool:
         if isinstance(p, Product):
             self.allProducts.append(p)
             return True
         return False
-
-    # + removeProduct(productId: int): Boolean
-    def removeProduct(self, productId: int) -> bool:
-        for product in self.allProducts:
-            if product.id == productId:
-                self.allProducts.remove(product)
-                return True
-        return False
-
-    # + fetchProductDetail(productId: int): Product
-    def fetchProductDetail(self, productId: int) -> Product:
+    
+    def fetchProductDetail(self, productId: int):
         for product in self.allProducts:
             if product.id == productId:
                 return product
-        return None
+        return None  # Return None if no matching product is found
 
-    # + browseCatalogue(): List<Category>
-    def browseCatalogue(self) -> list:
-        categories = set()
+
+    def productUI(self):
+        output = "\n# ==================================================\n"
+        output += "                PRODUCT CATALOGUE\n"
+        output += "# ==================================================\n\n"
+
+        if not self.allProducts:
+            output += "No products available.\n"
+        else:
+            for product in self.allProducts:
+                output += str(product) + "\n\n"
+
+        output += "--------------------------------------------------\n"
+        print(output)
+
+    def addProductUI(self):
+        add = ""  # initialize string for building output
+
+        add += ("\n# ==================================================\n")
+        add += ("                ADD NEW PRODUCT\n")
+        add += ("# ==================================================\n\n")
+
+        name = input("Enter Product Name    : ")
+
+        add += "Available Brands:\n"
+        for b in Brand:
+            add += f"[{b.value}] {b.name}\n"
+        print(add)
+        brand_input = int(input("Enter Brand           : "))
+        brand = Brand(brand_input)
+
+        print("Available Categories:")
+        for c in Category:
+            print(f"[{c.value}] {c.name}")
+        category_input = int(input("Enter Category        : "))
+        category = Category(category_input)
+
+        description = input("Enter Description     : ")
+        price = float(input("Enter Price ($)       : "))
+        quantity = int(input("Enter Initial Stock   : "))
+
+        confirm = input("\nConfirm add product? (y/n): ").strip().lower()
+        if confirm == 'y':
+            product = Product(name, description, price, quantity, category, brand)
+            self.addProduct(product)
+            print(f"\nProduct \"{product.name}\" added with ID: #{product.id}")
+        else:
+            print("\nProduct not added.")
+
+    def removeProductUI(self):
+        print("\n# ==================================================")
+        print("                REMOVE PRODUCT")
+        print("# ==================================================\n")
+
+        show =""
+        # Display current products
         for product in self.allProducts:
-            categories.add(product.category)
-        return list(categories)
+            
+            show += str(product) + "\n\n"
+        print(show)
 
-    # + searchProduct(desc: str): List<Product>
-    def searchProduct(self, desc: str) -> list:
-        desc = desc.lower()
-        return [
-            product for product in self.allProducts
-            if desc in product.description.lower()
-        ]
+        # Ask for product ID to remove
+        try:
+            product_id = int(input("Enter Product ID to remove or [0] to return home: "))
+        except ValueError:
+            print("❌ Invalid input. Please enter a valid number.")
+            return
 
-    # + modifyProductDetails(accountPrivilege: int): Boolean
-    def modifyProductDetails(self, accountPrivilege: int) -> bool:
-        return accountPrivilege >= 1
+        if product_id == 0:
+            print("Returning to home...\n")
+            return
+
+        # Search in product list
+        product = self.fetchProductDetail(product_id)
+
+        if product:
+            confirm = input(f"Are you sure you want to remove \"{product.name}\"? (y/n): ").strip().lower()
+            if confirm == 'y':
+                self.removeProduct(product)
+                print(f"\nProduct \"{product.name}\" removed successfully.")
+            else:
+                print("\nProduct removal cancelled.")
+        else:
+            print("\n❌ Product not found.\n")
+
+    def fetchProductDetailsUI(self):
+        print("\n# ==================================================")
+        print("               SEARCH PRODUCT RESULT")
+        print("# ==================================================\n")
+
+        # Ask for product ID
+        try:
+            product_id = int(input("Enter Product ID to view details or [0] to return home: "))
+        except ValueError:
+            print("❌ Invalid input. Please enter a valid number.")
+            return
+
+        if product_id == 0:
+            print("Returning to home...\n")
+            return
+
+        # Search in product list
+        product = self.fetchProductDetail(product_id)
+
+        if product:
+            print(f"\n[{product.id}] {product.name}")
+            print(f"Brand     : {product.brand.name}")
+            print(f"Category  : {product.category.name}")
+            print(f"Price     : ${product.price:.2f}")
+            print(f"Stock     : {product.quantity}")
+            print(f"Description: {product.description}")
+            print("\n--------------------------------------------------")
+        else:
+            print("\n❌ Product not found.\n")
+
+
+
+# ================== MAIN ==================
+
+if __name__ == "__main__":
+    catalogue = ProductCatalogue()
+
+    # Preload sample products
+    catalogue.addProduct(Product("TV", "4K Smart LED TV", 899.99, 8, Category.Television, Brand.A))
+    catalogue.addProduct(Product("Phone", "Latest 5G model", 1099.50, 12, Category.MobilePhone, Brand.B))
+    catalogue.addProduct(Product("Laptop", "Gaming powerhouse", 1999.00, 5, Category.Computer, Brand.C))
+
+# Display product UI
+#catalogue.productUI()
+
+#catalogue.fetchProductDetailsUI()
+
+# Add new product interactively
+#catalogue.addProductUI()
+catalogue.removeProductUI()
