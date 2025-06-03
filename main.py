@@ -1,18 +1,20 @@
 import os
 import sys
-from classes.account import Account, ownerAccount, staffAccount, customerAccount
 import re
+
+from classes.account import Account, ownerAccount, staffAccount, customerAccount
+from classes.productCatalogue import ProductCatalogue
+from classes.product import Product
 
 CURRENT_USER: Account | None = None
 
-def clear_screen():
+def clearScreen():
     """Clear the console screen."""
     os.system('cls' if os.name == 'nt' else 'clear')
 
-# Login interface for guest main menu
 def loginUI():
     global CURRENT_USER
-    clear_screen()
+    clearScreen()
     print("# ==================================================")
     print("                    LOGIN                          ")
     print("# ==================================================\n")
@@ -32,15 +34,14 @@ def loginUI():
         return False
 
     CURRENT_USER = user
-    clear_screen()
+    clearScreen()
     print(f"Logged in as '{user.username}' (Privilege {user.accountPrivilege}).")
     input("\nPress Enter to continue…")
     return True
 
-# Signup interface for guest main menu
 def SignupUI():
     global CURRENT_USER
-    clear_screen()
+    clearScreen()
     print("# ==================================================")
     print("                CREATE NEW ACCOUNT                 ")
     print("# ==================================================\n")
@@ -62,21 +63,23 @@ def SignupUI():
         return False
 
     CURRENT_USER = new_user
-    clear_screen()
+    clearScreen()
     print(f"Account created! Logged in as '{new_user.username}'.")
     input("\nPress Enter to continue…")
     return True
 
-def browseCatalogue():
-    clear_screen()
+def browseCatalogue(productCatalogue: ProductCatalogue):
+    clearScreen()
     print("# ==================================================")
     print("                PRODUCT CATALOGUE                   ")
     print("# ==================================================\n")
-    
+
+    productCatalogue.productUI()
+
     input("Press Enter to return to the menu…")
 
 def searchProduct():
-    clear_screen()
+    clearScreen()
     print("# ==================================================")
     print("                SEARCH PRODUCT                      ")
     print("# ==================================================\n")
@@ -85,7 +88,7 @@ def searchProduct():
     input("Press Enter to return to the menu…")
 
 def viewCart():
-    clear_screen()
+    clearScreen()
     print("# ==================================================")
     print("                  YOUR CART                         ")
     print("# ==================================================\n")
@@ -93,15 +96,15 @@ def viewCart():
     input("Press Enter to return to the menu…")
 
 def viewOrderHistory():
-    clear_screen()
+    clearScreen()
     print("# ==================================================")
     print("                ORDER HISTORY                      ")
     print("# ==================================================\n")
 
     input("Press Enter to return to the menu…")
 
-def addRemoveProduct():
-    clear_screen()
+def addRemoveProduct(productCatalogue: ProductCatalogue):
+    clearScreen()
     print("# ==================================================")
     print("             ADD / REMOVE PRODUCT                   ")
     print("# ==================================================\n")
@@ -111,7 +114,7 @@ def addRemoveProduct():
     choice = input("\nEnter choice: ").strip()
 
     if choice == "1":
-        clear_screen()
+        clearScreen()
         print("# ==================================================")
         print("                ADD NEW PRODUCT                     ")
         print("# ==================================================\n")
@@ -122,14 +125,19 @@ def addRemoveProduct():
         price       = input("Enter Price ($)       : ").strip()
         stock       = input("Enter Initial Stock   : ").strip()
 
+        newProduct = Product(name, description, price, stock, category, brand)
+        productCatalogue.addProduct(newProduct)
+
         input("\nPress Enter to return to the Main Menu…")
 
     elif choice == "2":
-        clear_screen()
+        clearScreen()
         print("# ==================================================")
         print("                 REMOVE PRODUCT                     ")
         print("# ==================================================\n")
-        prod_id = input("Enter Product ID to remove: ").strip()
+        prod_name = int(input("Enter Product ID to remove: "))
+
+        productCatalogue.removeProduct(prod_name)
 
         input("\nPress Enter to return to the Main Menu…")
 
@@ -137,7 +145,7 @@ def addRemoveProduct():
         return
 
 def viewStatistics():
-    clear_screen()
+    clearScreen()
     print("# ==================================================")
     print("             VIEW STATISTICS REPORT                 ")
     print("# ==================================================\n")
@@ -145,7 +153,7 @@ def viewStatistics():
     input("Press Enter to return to the Main Menu…")
 
 def modifyProduct():
-    clear_screen()
+    clearScreen()
     print("# ==================================================")
     print("            MODIFY PRODUCT CATALOGUE                ")
     print("# ==================================================\n")
@@ -154,7 +162,7 @@ def modifyProduct():
     input("Press Enter to return to the Main Menu…")
 
 def manageStaff():
-    clear_screen()
+    clearScreen()
     print("# ============================================")
     print("               MANAGE STAFF ACCOUNTS          ")
     print("# ============================================\n")
@@ -165,7 +173,7 @@ def manageStaff():
     choice = input("\nEnter choice: ").strip()
 
     if choice == "1":
-        clear_screen()
+        clearScreen()
         print("# ============================================")
         print("                ADD STAFF                     ")
         print("# ============================================\n")
@@ -173,7 +181,7 @@ def manageStaff():
         input("\nPress Enter to return to the Main Menu…")
 
     elif choice == "2":
-        clear_screen()
+        clearScreen()
         print("# ============================================")
         print("                STAFF LIST                    ")
         print("# ============================================\n")
@@ -182,7 +190,7 @@ def manageStaff():
         input("\nPress Enter to return to the Main Menu…")
 
     elif choice == "3":
-        clear_screen()
+        clearScreen()
         print("# ============================================")
         print("                STAFF LIST                    ")
         print("# ============================================\n")
@@ -198,9 +206,7 @@ def guestMenu():
     print("# ==================================================\n")
     print("[1] Browse Product Catalogue")
     print("[2] Search Product by Name or Category")
-    print("[3] View Cart")
-    print("[4] View Order History")
-    print("[5] Log In / Create Account")
+    print("[3] Log In / Create Account")
     print("[0] Logout\n")
 
 def loginSignupMenu():
@@ -245,31 +251,29 @@ def ownerMenu():
 
 def main():
     global CURRENT_USER
+    productCatalogue = ProductCatalogue()
+
     while True:
-        clear_screen()
+        clearScreen()
         if CURRENT_USER is None:
             guestMenu()
-            choice = input("Enter choice: ").strip()
-            if choice == "1":
+            choice = int(input("Enter choice: "))
+            if choice == 1:
                 browseCatalogue()
-            elif choice == "2":
+            elif choice == 2:
                 searchProduct()
-            elif choice == "3":
-                viewCart()
-            elif choice == "4":
-                viewOrderHistory()
-            elif choice == "5":
-                clear_screen()
+            elif choice == 3:
+                clearScreen()
                 loginSignupMenu()
-                sub = input("Enter choice: ").strip()
-                if sub == "1":
+                option = int(input("Enter choice: "))
+                if option == 1:
                     _ = loginUI()
-                elif sub == "2":
+                elif option == 2:
                     _ = SignupUI()
                 else:
                     pass
-            elif choice == "0":
-                clear_screen()
+            elif choice == 0:
+                clearScreen()
                 print("Goodbye.")
                 sys.exit(0)
             else:
@@ -277,52 +281,52 @@ def main():
 
         elif CURRENT_USER.accountPrivilege == 3:
             customerMenu()
-            choice = input("Enter choice: ").strip()
-            if choice == "1":
+            choice = int(input("Enter choice: "))
+            if choice == 1:
                 browseCatalogue()
-            elif choice == "2":
+            elif choice == 2:
                 searchProduct()
-            elif choice == "3":
+            elif choice == 3:
                 viewCart()
-            elif choice == "4":
+            elif choice == 4:
                 viewOrderHistory()
-            elif choice == "0":
+            elif choice == 0:
                 CURRENT_USER = None
             else:
                 continue
 
         elif CURRENT_USER.accountPrivilege == 2:
             staffMenu()
-            choice = input("Enter choice: ").strip()
-            if choice == "1":
+            choice = int(input("Enter choice: "))
+            if choice == 1:
                 addRemoveProduct()
-            elif choice == "2":
+            elif choice == 2:
                 modifyProduct()
-            elif choice == "3":
+            elif choice == 3:
                 browseCatalogue()
-            elif choice == "4":
+            elif choice == 4:
                 searchProduct()
-            elif choice == "0":
+            elif choice == 0:
                 CURRENT_USER = None
             else:
                 continue
 
         elif CURRENT_USER.accountPrivilege == 1:
             ownerMenu()
-            choice = input("Enter choice: ").strip()
-            if choice == "1":
-                addRemoveProduct()
-            elif choice == "2":
+            choice = int(input("Enter choice: "))
+            if choice == 1:
+                addRemoveProduct(productCatalogue)
+            elif choice == 2:
                 viewStatistics()
-            elif choice == "3":
+            elif choice == 3:
                 modifyProduct()
-            elif choice == "4":
+            elif choice == 4:
                 manageStaff()
-            elif choice == "5":
-                browseCatalogue()
-            elif choice == "6":
+            elif choice == 5:
+                browseCatalogue(productCatalogue)
+            elif choice == 6:
                 searchProduct()
-            elif choice == "0":
+            elif choice == 0:
                 CURRENT_USER = None
             else:
                 continue
