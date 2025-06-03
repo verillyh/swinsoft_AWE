@@ -49,7 +49,7 @@ class Account(InboxInterface):
 
     @accountID.setter
     def accountID(self, value: int):
-        raise AttributeError("Cannot set Account ID manually.")
+        self._accountID = next(_id_counter)
 
     @property
     def email(self):
@@ -100,6 +100,7 @@ class Account(InboxInterface):
         return f"hashed_{password}"
 
     @classmethod
+    @abstractmethod
     def signup(cls, accountPrivilege: int, email: str, streetAddress: str, username: str, password: str):
         email = email.strip()
         streetAddress = streetAddress.strip()
@@ -134,17 +135,27 @@ class Account(InboxInterface):
         )
         result = _db.query(select_query)
 
-        if "Result of query" in result:
-            db_accountID = next(_id_counter)
-            db_privilege = 3
-            db_email = usernameEmail if "@" in usernameEmail else "unknown@example.com"
-            db_street = "Unknown"
-            db_username = usernameEmail if "@" not in usernameEmail else usernameEmail.split("@")[0]
-            print("Login succeeded.")
-            return cls(db_privilege, db_email, db_street, db_username, hashedPassword, accountID=db_accountID)
-        else:
-            print("Login failed.")
+        if isinstance(result, str) and result.startswith("Error:"):
+            print(result)
             return False
+        
+        if len(result) == 0:
+            print("Login failed: no matching account.")
+            return False
+
+        row = result[0]
+        db_accountID, db_privilege, db_email, db_street, db_username, db_passwordHash = row
+
+        user = cls(
+            db_privilege,
+            db_email,
+            db_street,
+            db_username,
+            db_passwordHash,
+            accountID=db_accountID
+        )
+        print("Login succeeded.")
+        return user
 
     def modifyAccountDetail(self, field: str, newValue: str):
         field = field.strip()
@@ -204,7 +215,6 @@ class Account(InboxInterface):
             for msg in self.inbox:
                 print(f"FROM: {msg.sender} → {msg.content}")  
 
-    @abstractmethod
     def listOrders(self):
         if self.accountPrivilege == 3:
             query = (
@@ -226,12 +236,12 @@ class Account(InboxInterface):
         return True
     
 class ownerAccount(Account):
-    def __init__(self, email, streetAddress, username, password):
+    def __init__(self, accountPrivilege: int, email, streetAddress, username, password):
         super().__init__(1, email, streetAddress, username, password)
         self.generatedStatistics = []
-        self.staffAccounts = []
 
-    def signup(cls, email: str, streetAddress: str, username: str, password: str):
+    @classmethod
+    def signup(cls, accountPrivilege: int, email: str, streetAddress: str, username: str, password: str):
         newOwner = super().signup(1, email, streetAddress, username, password)
         print("Owner signup successful.")
         return newOwner
@@ -245,7 +255,7 @@ class ownerAccount(Account):
         
         return False
     
-    def createStaff(self, email: str, streetAddress: str, username: str, password: str):
+    def createStaff(self, accountPrivilege: int, email: str, streetAddress: str, username: str, password: str):
         staff_account = staffAccount.signup(2, email, streetAddress, username, password)
         if isinstance(staff_account, Account):
             print("Staff account created.")
@@ -264,13 +274,19 @@ class ownerAccount(Account):
         return True
 
 class staffAccount(Account):
-    def __init__(self, email, streetAddress, username, password):
+    def __init__(self, accountPrivilege: int, email, streetAddress, username, password):
         super().__init__(2, email, streetAddress, username, password)
         self.receipt = []
         self.invoice = []
 
+    @classmethod
+    def signup(cls, accountPrivilege: int, email: str, streetAddress: str, username: str, password: str):
+        newStaff = super().signup(2, email, streetAddress, username, password)
+        print("Staff signup successful.")
+        return newStaff
+
 class customerAccount(Account):
-    def __init__(self, email, streetAddress, username, password, cart):
+    def __init__(self, accountPrivilege: int, email, streetAddress, username, password, cart):
         super().__init__(3, email, streetAddress, username, password)
         self.receipt = []
         self.invoice = []
