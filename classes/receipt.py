@@ -1,22 +1,19 @@
-import itertools
+from product import Product
+from order import Order
 
 class Receipt:
-    _id_counter = itertools.count(start=1)
-
-    def __init__(self, invoice):
-        self.receiptID = next(Receipt._id_counter)
-        self.invoiceID = invoice.invoiceID
-        self.items = invoice.items  # Copy the list of items from the invoice
+    def __init__(self, receiptID: int, orderContents: Order):
+        self.receiptID = receiptID
+        self.orderContents = orderContents
 
     def __str__(self):
-        output = "\n========== RECEIPT ==========\n"
-        output += f"Receipt ID: {self.receiptID}\n"
-        output += f"From Invoice: {self.invoiceID}\n"
-        total = 0
-        for name, qty, price in self.items:
-            line_total = qty * price
-            output += f"{name} x{qty} — ${line_total:.2f}\n"
-            total += line_total
-        output += f"Total Paid: ${total:.2f}\n"
-        output += "=============================\n"
+        output = f"\n# ==================================================\n"
+        output += f"RECEIPT ID: {self.receiptID}\n"
+        output += "# ==================================================\n"
+        for item in self.orderContents.items:
+            product: Product = item.product
+            output += (
+                f"{product.get_name()} x{item.quantity} — ${product.get_price() * item.quantity:.2f}\n"
+            )
+        output += f"Total: ${self.orderContents.totalCost:.2f}\n"
         return output
