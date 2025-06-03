@@ -1,55 +1,96 @@
 from product import Product, Brand, Category
+from database import Database
 
 class ProductCatalogue:
-    def __init__(self):
-        self.allProducts = []
+    def __init__(self, db: Database):
+        self.db = db
+        self.brandFilter = [b for b in Brand]
+        self.categoryFilter = [c for c in Category]
 
-    def removeProduct(self, p: Product) -> bool:
-        if isinstance(p, Product) and p in self.allProducts:
-            self.allProducts.remove(p)
-            return True
-        return False
+    def _fetchAllProducts(self):
+        if not self.db.state:
+            print("❌ Not connected to database.")
+            return []
+
+        query = "SELECT ProductID, Name, Description, Price, StockQuantity, CategoryID, BrandID FROM ProductGood"
+        rows = self.db.query(query)
+
+        products = []
+        for row in rows:
+            try:
+                product = Product.from_db_row(row)
+                products.append(product)
+            except Exception as e:
+                print(f"⚠️ Skipped row {row} due to error: {e}")
+        return products
 
     def addProduct(self, p: Product) -> bool:
-        if isinstance(p, Product):
-            self.allProducts.append(p)
-            return True
-        return False
-    
-    def fetchProductDetail(self, productId: int):
-        for product in self.allProducts:
-            if product.id == productId:
-                return product
-        return None  # Return None if no matching product is found
+        if not self.db.state:
+            print("❌ Not connected to database.")
+            return False
+        query = """
+            INSERT INTO ProductGood (Name, Description, Price, StockQuantity, CategoryID, BrandID)
+            VALUES (%s, %s, %s, %s, %s, %s)
+        """
+        params = (
+            p.get_name(),
+            p.get_description(),
+            p.get_price(),
+            p.get_quantity(),
+            p.get_category_id(),
+            p.get_brand_id()
+        )
+        result = self.db.query(query, params)
+        return result and result[0].startswith("✅")
 
+    def removeProduct(self, productId: int) -> bool:
+        if not self.db.state:
+            print("❌ Not connected to database.")
+            return False
+        query = "DELETE FROM ProductGood WHERE ProductID = %s"
+        result = self.db.query(query, (productId,))
+        return result and result[0].startswith("✅")
+
+    def fetchProductDetail(self, productId: int):
+        products = self._fetchAllProducts()
+        return next((p for p in products if p.get_id() == productId), None)
+
+    def browseCatalogue(self):
+        products = self._fetchAllProducts()
+        categories = set(p.get_category() for p in products if p.get_brand() in self.brandFilter)
+        return list(categories)
+
+    def searchProduct(self, desc: str):
+        desc = desc.lower()
+        products = self._fetchAllProducts()
+        return [p for p in products if desc in p.get_description().lower() and p.get_brand() in self.brandFilter and p.get_category() in self.categoryFilter]
+
+    def modifyProductDetails(self, accountPrivilege: int) -> bool:
+        return accountPrivilege >= 1
 
     def productUI(self):
+        products = self._fetchAllProducts()
+        filtered = [p for p in products if p.get_brand() in self.brandFilter and p.get_category() in self.categoryFilter]
+
         output = "\n# ==================================================\n"
         output += "                PRODUCT CATALOGUE\n"
         output += "# ==================================================\n\n"
 
-        if not self.allProducts:
+        if not filtered:
             output += "No products available.\n"
         else:
-            for product in self.allProducts:
+            for product in filtered:
                 output += str(product) + "\n\n"
 
         output += "--------------------------------------------------\n"
         print(output)
 
     def addProductUI(self):
-        add = ""  # initialize string for building output
-
-        add += ("\n# ==================================================\n")
-        add += ("                ADD NEW PRODUCT\n")
-        add += ("# ==================================================\n\n")
-
+        print("\n# ==================================================\nADD NEW PRODUCT\n# ==================================================\n")
         name = input("Enter Product Name    : ")
-
-        add += "Available Brands:\n"
+        print("Available Brands:")
         for b in Brand:
-            add += f"[{b.value}] {b.name}\n"
-        print(add)
+            print(f"[{b.value}] {b.name}")
         brand_input = int(input("Enter Brand           : "))
         brand = Brand(brand_input)
 
@@ -66,94 +107,55 @@ class ProductCatalogue:
         confirm = input("\nConfirm add product? (y/n): ").strip().lower()
         if confirm == 'y':
             product = Product(name, description, price, quantity, category, brand)
-            self.addProduct(product)
-            print(f"\nProduct \"{product.name}\" added with ID: #{product.id}")
+            if self.addProduct(product):
+                print(f"\nProduct \"{product.get_name()}\" added successfully.")
+            else:
+                print("❌ Failed to add product.")
         else:
-            print("\nProduct not added.")
+            print("Product not added.")
 
     def removeProductUI(self):
-        print("\n# ==================================================")
-        print("                REMOVE PRODUCT")
-        print("# ==================================================\n")
-
-        show =""
-        # Display current products
-        for product in self.allProducts:
-            
-            show += str(product) + "\n\n"
-        print(show)
-
-        # Ask for product ID to remove
+        print("\n# ==================================================\nREMOVE PRODUCT\n# ==================================================\n")
+        products = self._fetchAllProducts()
+        for p in products:
+            print(f"[{p.get_id()}] {p.get_name()}")
         try:
-            product_id = int(input("Enter Product ID to remove or [0] to return home: "))
-        except ValueError:
-            print("❌ Invalid input. Please enter a valid number.")
+            pid = int(input("Enter Product ID to remove or [0] to return: "))
+        except:
+            print("Invalid input.")
             return
-
-        if product_id == 0:
-            print("Returning to home...\n")
+        if pid == 0:
             return
-
-        # Search in product list
-        product = self.fetchProductDetail(product_id)
-
-        if product:
-            confirm = input(f"Are you sure you want to remove \"{product.name}\"? (y/n): ").strip().lower()
-            if confirm == 'y':
-                self.removeProduct(product)
-                print(f"\nProduct \"{product.name}\" removed successfully.")
+        confirm = input("Are you sure you want to remove it? (y/n): ").strip().lower()
+        if confirm == 'y':
+            if self.removeProduct(pid):
+                print("✅ Product removed.")
             else:
-                print("\nProduct removal cancelled.")
-        else:
-            print("\n❌ Product not found.\n")
+                print("❌ Failed to remove.")
 
     def fetchProductDetailsUI(self):
-        print("\n# ==================================================")
-        print("               SEARCH PRODUCT RESULT")
-        print("# ==================================================\n")
-
-        # Ask for product ID
+        print("\n# ==================================================\nPRODUCT DETAILS\n# ==================================================\n")
         try:
-            product_id = int(input("Enter Product ID to view details or [0] to return home: "))
-        except ValueError:
-            print("❌ Invalid input. Please enter a valid number.")
+            pid = int(input("Enter Product ID to view or [0] to return: "))
+        except:
+            print("Invalid input.")
             return
-
-        if product_id == 0:
-            print("Returning to home...\n")
+        if pid == 0:
             return
-
-        # Search in product list
-        product = self.fetchProductDetail(product_id)
-
+        product = self.fetchProductDetail(pid)
         if product:
-            print(f"\n[{product.id}] {product.name}")
-            print(f"Brand     : {product.brand.name}")
-            print(f"Category  : {product.category.name}")
-            print(f"Price     : ${product.price:.2f}")
-            print(f"Stock     : {product.quantity}")
-            print(f"Description: {product.description}")
-            print("\n--------------------------------------------------")
+            print(product)
         else:
-            print("\n❌ Product not found.\n")
+            print("❌ Product not found.")
 
-
-
-# ================== MAIN ==================
-
+# ===== MAIN TESTING =====
 if __name__ == "__main__":
-    catalogue = ProductCatalogue()
+    db = Database("s104354565_db", user="s104354565", password="Ping13749&&")
 
-    # Preload sample products
-    catalogue.addProduct(Product("TV", "4K Smart LED TV", 899.99, 8, Category.Television, Brand.A))
-    catalogue.addProduct(Product("Phone", "Latest 5G model", 1099.50, 12, Category.MobilePhone, Brand.B))
-    catalogue.addProduct(Product("Laptop", "Gaming powerhouse", 1999.00, 5, Category.Computer, Brand.C))
-
-# Display product UI
-#catalogue.productUI()
-
-#catalogue.fetchProductDetailsUI()
-
-# Add new product interactively
-#catalogue.addProductUI()
-catalogue.removeProductUI()
+    if db.connect("s104354565_db"):
+        catalogue = ProductCatalogue(db)
+        catalogue.productUI()
+        # catalogue.fetchProductDetailsUI()
+        # catalogue.addProductUI()
+        catalogue.removeProductUI()
+        db.disconnect("s104354565_db")
