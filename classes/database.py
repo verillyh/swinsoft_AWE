@@ -5,7 +5,7 @@ class Database:
 
     # + connect(db_name: String): Boolean
     def connect(self, db_name: str) -> bool:
-        if db_name == self._db_name and not self.state:
+        if db_name == self._db_name and self.state:
             self.state = True
             print(f"Connected to database: {db_name}")
             return True
@@ -24,6 +24,7 @@ class Database:
     # + query(query: String): String
     def query(self, query: str) -> str:
         if not self.state:
+            print(self.state)
             return "Error: Not connected to any database."
         # Simulate processing a query
         print(f"Running query: {query}")
