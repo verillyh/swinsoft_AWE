@@ -1,20 +1,22 @@
-from product import Product, Brand, Category
+from classes.product import Product, Brand, Category
 
 class ProductCatalogue:
     def __init__(self):
-        self.allProducts = []
+        self.allProducts: Product = []
 
-    def removeProduct(self, p: Product) -> bool:
-        if isinstance(p, Product) and p in self.allProducts:
-            self.allProducts.remove(p)
-            return True
-        return False
+    def removeProduct(self, prod_id: int) -> bool:
+        for p in self.allProducts:
+            if prod_id == p.id:
+                self.allProducts.remove(p)
+                return True
+            else:
+                return False
 
     def addProduct(self, p: Product) -> bool:
         if isinstance(p, Product):
             self.allProducts.append(p)
-            return True
-        return False
+        else:
+            return False
     
     def fetchProductDetail(self, productId: int):
         for product in self.allProducts:
@@ -22,13 +24,12 @@ class ProductCatalogue:
                 return product
         return None  # Return None if no matching product is found
 
-
     def productUI(self):
         output = "\n# ==================================================\n"
         output += "                PRODUCT CATALOGUE\n"
         output += "# ==================================================\n\n"
 
-        if not self.allProducts:
+        if len(self.allProducts) == 0:
             output += "No products available.\n"
         else:
             for product in self.allProducts:
@@ -156,4 +157,4 @@ if __name__ == "__main__":
 
 # Add new product interactively
 #catalogue.addProductUI()
-catalogue.removeProductUI()
+# catalogue.removeProductUI()
