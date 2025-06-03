@@ -1,22 +1,30 @@
 from classes.product import Product, Brand, Category
 
 class ProductCatalogue:
+    _instance = None
+
+    def __new__(cls, *args, **kwargs):
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
+        return cls._instance
+
     def __init__(self):
-        self.allProducts: Product = []
+        if not hasattr(self, "_initialized"):
+            self.allProducts: list[Product] = []
+            self._initialized = True
 
-    def removeProduct(self, prod_id: int) -> bool:
-        for p in self.allProducts:
-            if prod_id == p.id:
-                self.allProducts.remove(p)
+    def removeProduct(self, productID: int):
+        for product in self.allProducts:
+            if productID == product.id:
+                self.allProducts.remove(product)
                 return True
-            else:
-                return False
+        return False
 
-    def addProduct(self, p: Product) -> bool:
-        if isinstance(p, Product):
-            self.allProducts.append(p)
-        else:
-            return False
+    def addProduct(self, product: Product) -> bool:
+        if isinstance(product, Product):
+            self.allProducts.append(product)
+            return True
+        return False
     
     def fetchProductDetail(self, productId: int):
         for product in self.allProducts:
