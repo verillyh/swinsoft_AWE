@@ -4,3 +4,4 @@ class InboxInterface(ABC):
     @abstractmethod
     def showInboxMessage(self):
         pass
+    
