@@ -38,3 +38,4 @@ class Product:
             f"Stock     : {self.quantity}\n"
             f"Description: {self.description}"
         )
+   

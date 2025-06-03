@@ -1,17 +1,18 @@
 import itertools
+from classes.invoice import Invoice
 
 class Receipt:
     _id_counter = itertools.count(start=1)
 
-    def __init__(self, invoice):
+    def __init__(self, invoice: Invoice):
         self.receiptID = next(Receipt._id_counter)
-        self.invoiceID = invoice.invoiceID
-        self.items = invoice.items  # Copy the list of items from the invoice
+        self.__invoice = invoice
+        self.items = invoice.items  
 
     def __str__(self):
         output = "\n========== RECEIPT ==========\n"
         output += f"Receipt ID: {self.receiptID}\n"
-        output += f"From Invoice: {self.invoiceID}\n"
+        output += f"From Invoice: {self.__invoice.invoiceID}\n"
         total = 0
         for name, qty, price in self.items:
             line_total = qty * price

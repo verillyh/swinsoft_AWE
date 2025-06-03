@@ -1,5 +1,7 @@
 import random
 import string
+from invoice import Invoice
+from receipt import Receipt
 
 class Payment:
     def requestPaymentFromVendor(self, cardNumber: str, monthExpiry: int, yearExpiry: int, cvv: int) -> str:
@@ -11,19 +13,8 @@ class Payment:
         print(f"Validating transaction {transaction_id}...")
         return True
 
-    def generateReceipt(self, order):
-        print("Generating receipt...")
-        receipt_id = random.randint(1000, 9999)
-        order_id = order.getOrderId()
-        total = order.getTotalCost()
-        items = [(item.getProduct()['name'], item.getQuantity()) for item in order.getItems()]
-    
-        item_lines = "\n".join([f"  - {name} x{qty}" for name, qty in items])
-    
-        return (
-            f"# =================================================== \n {'RECEIPT' .center(50)} \n# =================================================== \n"
-            f"Receipt ID: {receipt_id}\n"
-            f"Order ID: {order_id}\n"
-            f"Items:\n{item_lines}\n"
-            f"Total: ${total}\n"
-    )
+    def generateReceipt(self, invoice: Invoice):
+        if not invoice.isPaid:
+            print("Error: Cannot generate receipt for unpaid invoice.")
+            return None
+        return Receipt(invoice)

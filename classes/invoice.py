@@ -1,15 +1,18 @@
 import itertools
 from receipt import Receipt
-
+from order import Order
 
 class Invoice:
     _id_counter = itertools.count(start=1)
 
-    def __init__(self, items):
+    def __init__(self, order: Order):
         self.invoiceID = next(Invoice._id_counter)
         self.isPaid = False
-        self.items = items  # List of tuples: (product_name, quantity, price)
-
+        self.__orderContent = order
+        self.items = [
+            (item.product['name'], item.quantity, item.product['price'])
+            for item in self.__orderContent.items
+        ]
     def payInvoice(self):
         if not self.isPaid:
             self.isPaid = True
@@ -28,30 +31,4 @@ class Invoice:
         output += f"Total: ${total:.2f}\n"
         return output
 
-if __name__ == "__main__":
-    cart_items = [
-        ("Product_1", 1, 320.00),
-        ("Product_4", 2, 180.00)
-    ]
-
-    invoice = Invoice(cart_items)
-
-    # 1. Print the invoice
-    print(invoice)
-
-    # 2. Ask user to process the order
-    choice = input("\n[1] Place the order\n[0] to Cancel\nYour choice: ")
-
-    if choice == "1":
-        if invoice.payInvoice():
-            print("Order placed successfully.")
-            
-            # 3. Generate and print receipt
-            receipt = Receipt(invoice)
-            print(receipt)
-        else:
-            print("Invoice was already paid.")
-    elif choice == "0":
-        print("Order cancelled.")
-    else:
-        print("Invalid input. Order not processed.")
+    
