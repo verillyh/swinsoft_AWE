@@ -68,6 +68,63 @@ class ProductCatalogue:
     def modifyProductDetails(self, accountPrivilege: int) -> bool:
         return accountPrivilege >= 1
 
+    def modifyProductDetailsUI(self):
+        print("\n# ==================================================\nMODIFY PRODUCT DETAILS\n# ==================================================\n")
+        try:
+            pid = int(input("Enter Product ID to modify or [0] to return: "))
+        except:
+            print("Invalid input.")
+            return
+        if pid == 0:
+            return
+        product = self.fetchProductDetail(pid)
+        if not product:
+            print("❌ Product not found.")
+            return
+
+        print(f"\nCurrent Info:\n{product}\n")
+        print("[1] Update Price\n[2] Update Stock\n[3] Update Description\n[4] Update Brand\n[5] Update Category\n[0] Return to main page")
+        choice = input("Enter choice: ").strip()
+
+        query = ""
+        params = ()
+
+        if choice == "1":
+            new_price = float(input("Enter new price: "))
+            query = "UPDATE ProductGood SET Price = %s WHERE ProductID = %s"
+            params = (new_price, pid)
+        elif choice == "2":
+            new_stock = int(input("Enter new stock: "))
+            query = "UPDATE ProductGood SET StockQuantity = %s WHERE ProductID = %s"
+            params = (new_stock, pid)
+        elif choice == "3":
+            new_desc = input("Enter new description: ")
+            query = "UPDATE ProductGood SET Description = %s WHERE ProductID = %s"
+            params = (new_desc, pid)
+        elif choice == "4":
+            for b in Brand:
+                print(f"[{b.value}] {b.name}")
+            new_brand = int(input("Enter new brand: "))
+            query = "UPDATE ProductGood SET BrandID = %s WHERE ProductID = %s"
+            params = (new_brand, pid)
+        elif choice == "5":
+            for c in Category:
+                print(f"[{c.value}] {c.name}")
+            new_cat = int(input("Enter new category: "))
+            query = "UPDATE ProductGood SET CategoryID = %s WHERE ProductID = %s"
+            params = (new_cat, pid)
+        elif choice == "0":
+            return
+        else:
+            print("❌ Invalid choice.")
+            return
+
+        result = self.db.query(query, params)
+        if result and result[0].startswith("✅"):
+            print("✅ Product updated successfully.")
+        else:
+            print("❌ Failed to update product.")
+
     def productUI(self):
         products = self._fetchAllProducts()
         filtered = [p for p in products if p.get_brand() in self.brandFilter and p.get_category() in self.categoryFilter]
@@ -155,7 +212,8 @@ if __name__ == "__main__":
     if db.connect("s104354565_db"):
         catalogue = ProductCatalogue(db)
         catalogue.productUI()
-        # catalogue.fetchProductDetailsUI()
+        catalogue.fetchProductDetailsUI()
         # catalogue.addProductUI()
-        catalogue.removeProductUI()
+        # catalogue.removeProductUI()
+        catalogue.modifyProductDetailsUI()
         db.disconnect("s104354565_db")
