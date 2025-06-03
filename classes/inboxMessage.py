@@ -1,5 +1,5 @@
 import itertools
-from account import InboxInterface
+from classes.inboxInterface import InboxInterface
 
 class InboxMessage(InboxInterface):
     _id_counter = itertools.count(start=0)

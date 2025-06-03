@@ -1,10 +1,11 @@
 import itertools
 import re
 import sys
-from filter import Statisticable
-from abc import ABC, abstractmethod
-from inboxMessage import InboxMessage
-from database import Database
+from classes.filter import Statisticable
+from abc import abstractmethod
+from classes.inboxMessage import InboxMessage
+from classes.inboxInterface import InboxInterface
+from classes.database import Database
 
 # Database connection
 _db = Database("name")
@@ -21,11 +22,6 @@ CREATE TABLE IF NOT EXISTS accounts (
 """.strip())
 
 _id_counter = itertools.count(start=1)
-
-class InboxInterface(ABC):
-    @abstractmethod
-    def showInboxMessage(self):
-        pass
 
 class Account(InboxInterface):
     def __init__(self, accountPrivilege: int, email: str, streetAddress: str, username: str, passwordHash: str, accountID: int = None):
