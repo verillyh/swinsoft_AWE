@@ -68,22 +68,41 @@ def SignupUI():
     input("\nPress Enter to continue…")
     return True
 
+def productUI(productCatalogue: ProductCatalogue):
+    if len(productCatalogue.allProducts) == 0:
+        print("No products available.\n")
+    else:
+        for product in productCatalogue.allProducts:
+            print(product)
+            print()
+
 def browseCatalogue(productCatalogue: ProductCatalogue):
     clearScreen()
     print("# ==================================================")
     print("                PRODUCT CATALOGUE                   ")
     print("# ==================================================\n")
 
-    productCatalogue.productUI()
+    productUI(productCatalogue)
 
     input("Press Enter to return to the menu…")
 
-def searchProduct():
+def searchProduct(productCatalogue: ProductCatalogue):
     clearScreen()
     print("# ==================================================")
     print("                SEARCH PRODUCT                      ")
     print("# ==================================================\n")
     keyword = input("Enter product name or keyword: ").strip()
+
+    results = productCatalogue.fetchProductDetail(keyword)
+
+    amount = len(results)
+    if amount == 0:
+        print("No product match this keyword.\n")
+    else:
+        print(f"\nFound {amount} matching products:\n")
+        for product in results:
+            print(product)
+            print()
 
     input("Press Enter to return to the menu…")
 
@@ -207,7 +226,7 @@ def guestMenu():
     print("[1] Browse Product Catalogue")
     print("[2] Search Product by Name or Category")
     print("[3] Log In / Create Account")
-    print("[0] Logout\n")
+    print("[0] Exit\n")
 
 def loginSignupMenu():
     print("# ==================================================")
@@ -259,9 +278,9 @@ def main():
             guestMenu()
             choice = int(input("Enter choice: "))
             if choice == 1:
-                browseCatalogue()
+                browseCatalogue(productCatalogue)
             elif choice == 2:
-                searchProduct()
+                searchProduct(productCatalogue)
             elif choice == 3:
                 clearScreen()
                 loginSignupMenu()
@@ -283,9 +302,9 @@ def main():
             customerMenu()
             choice = int(input("Enter choice: "))
             if choice == 1:
-                browseCatalogue()
+                browseCatalogue(productCatalogue)
             elif choice == 2:
-                searchProduct()
+                searchProduct(productCatalogue)
             elif choice == 3:
                 viewCart()
             elif choice == 4:
@@ -299,13 +318,13 @@ def main():
             staffMenu()
             choice = int(input("Enter choice: "))
             if choice == 1:
-                addRemoveProduct()
+                addRemoveProduct(productCatalogue)
             elif choice == 2:
                 modifyProduct()
             elif choice == 3:
-                browseCatalogue()
+                browseCatalogue(productCatalogue)
             elif choice == 4:
-                searchProduct()
+                searchProduct(productCatalogue)
             elif choice == 0:
                 CURRENT_USER = None
             else:
@@ -325,7 +344,7 @@ def main():
             elif choice == 5:
                 browseCatalogue(productCatalogue)
             elif choice == 6:
-                searchProduct()
+                searchProduct(productCatalogue)
             elif choice == 0:
                 CURRENT_USER = None
             else:
