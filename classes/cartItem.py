@@ -1,31 +1,23 @@
-import itertools
-
 class CartItem:
-    _id_counter = itertools.count(start=1)
+    def __init__(self, product: dict, quantity: int):
+        self._product = product
+        self._quantity = quantity
+        self.__cartItemID: int | None = None
 
-    def __init__(self, product, quantity):
-        self.__cartItemID = next(CartItem._id_counter)
-        self.__quantity = quantity
-        self.__product = product
+    def setCartItemID(self, new_id: int):
+        self.__cartItemID = new_id
 
-    def getCartItemID(self):
+    def getCartItemID(self) -> int:
         return self.__cartItemID
 
-    def getProduct(self):
-        return self.__product
+    def getProduct(self) -> dict:
+        return self._product
 
-    def getQuantity(self):
-        return self.__quantity
+    def getQuantity(self) -> int:
+        return self._quantity
 
-    def getTotalPrice(self):
-        return self.__product['price'] * self.__quantity
+    def changeQuantity(self, new_qty: int):
+        self._quantity = new_qty
 
-    def changeQuantity(self, newQty):
-        self.__quantity = newQty
-
-    def changeItemQty(self, cartItemID, newQty):
-        item = self.selectCartItem(cartItemID)
-        if item:
-            item.changeQuantity(newQty)
-            return True
-        return False 
+    def getTotalPrice(self) -> float:
+        return self._product["price"] * self._quantity
