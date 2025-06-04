@@ -79,12 +79,28 @@ class ProductCatalogue:
             print("Warning: fetchAllProducts expected list of tuples but got", type(raw))
             return []
 
-        products: list[Product] = []
+        products = []
         for row in raw:
-            if not (isinstance(row, tuple) and len(row) == 7):
+            if isinstance(row, tuple) and len(row) == 7:
+                tup = row
+            elif isinstance(row, dict):
+                try:
+                    tup = (
+                        row["ProductID"],
+                        row["Name"],
+                        row["Description"],
+                        row["Price"],
+                        row["StockQuantity"],
+                        row["Category"],
+                        row["Brand"]
+                    )
+                except KeyError:
+                    continue
+            else:
                 continue
-            prod = self._row_to_product(row)
-            products.append(prod)
+            prod_obj = self._row_to_product(tup)
+            products.append(prod_obj)
+
         return products
     
     def fetchProductDetail(self, keyword: str, db):
@@ -107,18 +123,32 @@ class ProductCatalogue:
         """
         raw = db.query(select_sql)
 
-        if not isinstance(raw, list):
-            print("Warning: fetchProductDetail expected list of tuples but got", type(raw))
+        if not isinstance(raw, list) or len(raw) == 0:
             return []
 
-        matches: list[Product] = []
+        matches = []
         for row in raw:
-            if not (isinstance(row, tuple) and len(row) == 7):
+            if isinstance(row, tuple) and len(row) == 7:
+                tup = row
+            elif isinstance(row, dict):
+                try:
+                    tup = (
+                        row["ProductID"],
+                        row["Name"],
+                        row["Description"],
+                        row["Price"],
+                        row["StockQuantity"],
+                        row["Category"],
+                        row["Brand"],
+                    )
+                except KeyError:
+                    continue
+            else:
                 continue
-            prod = self._row_to_product(row)
-            matches.append(prod)
+            prod_obj = self._row_to_product(tup)
+            matches.append(prod_obj)
+
         return matches
-    
     def fetchProductByID(self, productID: int, db):
         try:
             pid = int(productID)
