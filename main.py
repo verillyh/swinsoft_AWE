@@ -7,10 +7,15 @@ from classes.productCatalogue import ProductCatalogue
 from classes.product import Product, Brand, Category
 from classes.cart import Cart
 from classes.database import Database
+from classes.order import Order, OrderStatus
+from classes.payment import Payment
+from classes.cartItem import CartItem as CI
 
 # Database connection
 _db = Database("awe")
 _db.connect("awe")
+
+GUEST_CART = Cart(customerID=None)
 
 CURRENT_USER: Account | None = None
 
@@ -116,22 +121,228 @@ def searchProduct(productCatalogue: ProductCatalogue):
     input("\nPress Enter to return to the menu…")
 
 def addProductToCart(productCatalogue: ProductCatalogue):
-    browseCatalogue(productCatalogue)
-    choice = int(input("Enter product ID to add to cart: "))
-    product = productCatalogue.fetchProductByID(choice, _db)
-    if not product:
-        print("No product with this ID")
+    clearScreen()
+    print("# ==================================================")
+    print("             ADD PRODUCT TO CART                    ")
+    print("# ==================================================\n")
+
+    productUI(productCatalogue)
+
+    try:
+        choice = int(input("\nEnter product ID to add to cart: ").strip())
+    except ValueError:
+        print("Invalid ID. Returning to previous menu.")
+        input("\nPress Enter to continue…")
+        return
+
+    product_obj = productCatalogue.fetchProductByID(choice, _db)
+    if not product_obj:
+        print("\nNo product with this ID.")
+        input("\nPress Enter to continue…")
+        return
+
+    try:
+        amount = int(input("Enter quantity: ").strip())
+        if amount <= 0:
+            raise ValueError
+    except ValueError:
+        print("Quantity must be a positive integer.")
+        input("\nPress Enter to continue…")
+        return
+
+    product_dict = {
+        "id": product_obj.id,
+        "name": product_obj.name,
+        "price": product_obj.price
+    }
+
+    if CURRENT_USER is None:
+        GUEST_CART.addToCart(product_dict, amount)
     else:
-        amount = int(input("Enter quantity: "))
-        Cart.addToCart(product, amount)
+        CURRENT_USER.cart.addToCart(product_dict, amount)
+
+    print(f"\nAdded {amount} × '{product_obj.name}' to your cart.")
+    input("\nPress Enter to continue…")
 
 def viewCart():
     clearScreen()
-    print("# ==================================================")
-    print("                  YOUR CART                         ")
-    print("# ==================================================\n")
+    print("#" + "=" * 50)
+    print("                  YOUR CART                        ")
+    print("#" + "=" * 50 + "\n")
 
-    input("Press Enter to return to the menu…")
+    if CURRENT_USER is None:
+        cart = GUEST_CART
+        print("** You are viewing as a guest. You must log in or sign up to check out. **\n")
+    else:
+        cart = CURRENT_USER.cart
+
+    if not cart.getCartItems():
+        print("Your cart is currently empty.\n")
+        input("Press Enter to return to the menu…")
+        return
+
+    while True:
+        clearScreen()
+        items = cart.getCartItems()
+
+        if not items:
+            print("Your cart is now empty.\n")
+            input("Press Enter to return to the menu…")
+            return
+
+        grand_total = 0.0
+        for item in items:
+            cartItemID = item.getCartItemID()      
+            prod = item.getProduct()
+            prod_id = prod["id"]                      
+            name = prod["name"]
+            unit_price = prod["price"]
+            qty = item.getQuantity()
+            line_total = unit_price * qty
+            grand_total += line_total
+            print(f"[{cartItemID}] {name} (PID {prod_id}) – ${unit_price:.2f} × {qty} = ${line_total:.2f}")
+            print("-" * 40)
+
+        print(f"\nGrand Total: ${grand_total:.2f}\n")
+        print("[1] Remove Item")
+        print("[2] Update Quantity")
+        print("[3] Proceed to Checkout")
+        print("[0] Return to Main Menu")
+        print("[X] Return to Previous Page")
+
+        choice = input("\nEnter choice: ").strip().upper()
+        if choice == "1":
+            try:
+                cid = int(input("\nEnter the **CartItemID** to remove: ").strip())
+            except ValueError:
+                print("Invalid input. CartItemID must be an integer.")
+                input("\nPress Enter to continue…")
+                continue
+
+            success = cart.removeCartItem(cid)
+            if success:
+                print(f"Item #{cid} removed successfully.")
+            else:
+                print(f"CartItemID {cid} not found in your cart.")
+            input("\nPress Enter to continue…")
+            continue
+
+        elif choice == "2":
+            try:
+                cid = int(input("\nEnter the **CartItemID** to update: ").strip())
+                new_qty = int(input("Enter the new quantity: ").strip())
+                if new_qty <= 0:
+                    raise ValueError
+            except ValueError:
+                print("Invalid input. Please enter a valid CartItemID and a positive integer quantity.")
+                input("\nPress Enter to continue…")
+                continue
+
+            found_item = None
+            for item in items:
+                if item.getCartItemID() == cid:
+                    item.changeQuantity(new_qty)
+                    found_item = item
+                    break
+
+            if not found_item:
+                print(f"CartItemID {cid} not found in your cart.")
+            else:
+                print(f"Quantity for CartItem #{cid} updated to {new_qty}.")
+
+            input("\nPress Enter to continue…")
+            continue
+
+        elif choice == "3":
+            if CURRENT_USER is None:
+                print("\nYou must log in or create an account to check out.")
+                loginSignupMenu()
+                input("\nPress Enter to continue…")
+                return
+
+            clearScreen()
+            print("#" + "=" * 50)
+            print("                 CHECKOUT                          ")
+            print("#" + "=" * 50 + "\n")
+
+            items = cart.getCartItems()
+            if not items:
+                print("Your cart is empty; nothing to checkout.\n")
+                input("Press Enter to return to the menu…")
+                return
+
+            grand_total = 0.0
+            for item in items:
+                prod = item.getProduct()
+                name = prod["name"]
+                unit_price = prod["price"]
+                qty = item.getQuantity()
+                line_total = unit_price * qty
+                grand_total += line_total
+                print(f"{name} × {qty} @ ${unit_price:.2f} = ${line_total:.2f}")
+            print(f"\nGrand Total: ${grand_total:.2f}\n")
+
+            proceed = input("[1] Pay and complete checkout   [0] Cancel\n\nEnter choice: ").strip()
+            if proceed != "1":
+                print("Checkout cancelled.")
+                input("\nPress Enter to return to the menu…")
+                return
+
+            print("\n#" + "=" * 50)
+            print(f"{'ENTER PAYMENT DETAILS':^52}")
+            print("#" + "=" * 50 + "\n")
+
+            cardholder_name = input("Cardholder Name : ").strip()
+            card_number     = input("Card Number     : ").strip()
+            expiry          = input("Expiry (MM/YY)  : ").strip()
+            cvv             = input("CVV             : ").strip()
+
+            try:
+                exp_month, exp_year = map(int, expiry.split("/"))
+                cvv_int = int(cvv)
+            except ValueError:
+                print("Invalid expiry or CVV format. Aborting payment.")
+                input("\nPress Enter to return to the menu…")
+                return
+
+            payment = Payment()
+            transaction_id = payment.requestPaymentFromVendor(card_number, exp_month, exp_year, cvv_int)
+            if not payment.validateTransaction(transaction_id):
+                print("Payment failed. Transaction invalid.")
+                input("\nPress Enter to return to the menu…")
+                return
+
+            cart_items_for_receipt = cart.getCartItems()
+            cart._items.clear()
+
+            items_for_receipt = []
+            for item in cart_items_for_receipt:
+                items_for_receipt.append(
+                    CI(item.getProduct(), item.getQuantity())
+                )
+
+            order_obj = Order(
+                customerId=CURRENT_USER.accountID,
+                items=items_for_receipt,
+                orderStatus=OrderStatus.PAID,
+                orderID=None
+            )
+
+            receipt_text = payment.generateReceipt(order_obj)
+            print("\n" + receipt_text)
+            input("\nPress Enter to return to the menu…")
+            return
+
+        elif choice == "0":
+            return
+
+        elif choice == "X":
+            return
+
+        else:
+            print("\nInvalid option. Please choose 1, 2, 3, 0, or X.")
+            input("\nPress Enter to continue…")
+            continue
 
 def viewOrderHistory():
     clearScreen()
@@ -392,7 +603,8 @@ def guestMenu():
     print("# ==================================================\n")
     print("[1] Browse Product Catalogue")
     print("[2] Search Product by Name or Category")
-    print("[3] Log In / Create Account")
+    print("[3] View Cart")
+    print("[4] Log In / Create Account")
     print("[0] Exit\n")
 
 def loginSignupMenu():
@@ -446,9 +658,21 @@ def main():
             choice = int(input("Enter choice: "))
             if choice == 1:
                 browseCatalogue(productCatalogue)
+                clearScreen()
+                print("\n[1] Add product to cart")
+                print("\n[2] Return to main menu\n")
+                option = input("Enter an option: ")
+                if option == "1":
+                    addProductToCart(productCatalogue)
+                elif option == "2":
+                    pass
+                else:
+                    print("Invalid option")
             elif choice == 2:
                 searchProduct(productCatalogue)
             elif choice == 3:
+                viewCart()
+            elif choice == 4:
                 clearScreen()
                 loginSignupMenu()
                 option = int(input("Enter choice: "))
@@ -469,7 +693,17 @@ def main():
             customerMenu()
             choice = input("Enter choice: ").strip()
             if choice == "1":
-                addProductToCart(productCatalogue)
+                browseCatalogue(productCatalogue)
+                clearScreen()
+                print("\n[1] Add product to cart")
+                print("[2] Return to customer menu")
+                sub = input("Enter an option: ").strip()
+                if sub == "1":
+                    addProductToCart(productCatalogue)
+                elif sub == "2":
+                    pass
+                else:
+                    print("Invalid option")
             elif choice == "2":
                 searchProduct(productCatalogue)
             elif choice == "3":
