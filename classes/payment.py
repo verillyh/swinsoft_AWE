@@ -1,5 +1,10 @@
 import random
 import string
+<<<<<<< Updated upstream
+=======
+from classes.invoice import Invoice
+from classes.receipt import Receipt
+>>>>>>> Stashed changes
 
 class Payment:
     def requestPaymentFromVendor(self, cardNumber: str, monthExpiry: int, yearExpiry: int, cvv: int) -> str:

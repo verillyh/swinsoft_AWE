@@ -1,3 +1,4 @@
+<<<<<<< Updated upstream
 import itertools
 
 class CartItem:
@@ -29,3 +30,35 @@ class CartItem:
             item.changeQuantity(newQty)
             return True
         return False 
+=======
+# from classes.itemContainer import ItemContainer
+# class CartItem(ItemContainer):
+#     def __init__(self, itemId, product, quantity):
+#         super().__init__(itemId, product, quantity)
+#         self.isSelected = False
+
+#     def changeItemQty(self, cartItemID, newQty):
+#         item = self.selectCartItem(cartItemID)
+#         if item:
+#             item.changeQuantity(newQty)
+#             return True
+#         return False 
+    
+#     def calculateTotalPrice(self):
+#         return self.quantity * self.product['price']
+
+# === classes/cartItem.py ===
+from classes.itemContainer import ItemContainer
+from classes.orderItem import OrderItem
+
+class CartItem(ItemContainer):
+    def __init__(self, itemId, quantity, product):
+        super().__init__(itemId, quantity, product)
+        self.isSelected = False
+
+    def calculateTotalPrice(self):
+        return self.quantity * self.product['price']
+
+    def toOrderItem(self):
+        return OrderItem(self.itemID, self.quantity, self.product)
+>>>>>>> Stashed changes

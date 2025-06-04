@@ -1,6 +1,10 @@
 import itertools
 from classes.cartItem import CartItem
+<<<<<<< Updated upstream
 from classes.payment import Payment
+=======
+from classes.invoice import Invoice
+>>>>>>> Stashed changes
 from classes.order import Order, OrderStatus
 
 class Cart:
@@ -16,25 +20,40 @@ class Cart:
             if item.getProduct()['id'] == product['id']:
                 item.changeQuantity(item.getQuantity() + quantity)
                 return True
+<<<<<<< Updated upstream
             
         newItem = CartItem(product, quantity)
+=======
+        new_id = next(Cart.__id_counter)
+        newItem = CartItem(new_id, quantity, product)  # Corrected order of parameters
+>>>>>>> Stashed changes
         self.__cartItems.append(newItem)
         return True
-    
+
     def removeCartItem(self, cartItemID):
         for item in self.__cartItems:
             if item.getCartItemID() == cartItemID:
                 self.__cartItems.remove(item)
                 return True
         return False
-    
+
     def selectCartItem(self, cartItemID):
         for item in self.__cartItems:
             if item.getCartItemID() == cartItemID:
                 return item
         return None
+
+    def getCartItems(self):  # Added for external access
+        return self.__cartItems
     
     
+
+    def __placeOrder(self):
+        order_items = [item.toOrderItem() for item in self.__cartItems]
+        order = Order(customerId=self.customer_id, items=order_items, orderStatus=OrderStatus.PAID)
+        invoice = Invoice(order)
+        return order, invoice
+
     def listProductsInCart(self):
         if not self.__cartItems:
             return "Cart is empty"
@@ -42,10 +61,12 @@ class Cart:
         for item in self.__cartItems:
             lines.append(f"Product: {item.getProduct()['name']} x {item.getQuantity()} = ${item.getTotalPrice()}")
         return "\n".join(lines)
-    
+
     def checkout(self):
         if not self.__cartItems:
+            print("Cart is empty.")
             return 0
+<<<<<<< Updated upstream
         total = sum(item.getTotalPrice() for item in self.__cartItems)
         self.__cartItems.clear()
         return total
@@ -156,3 +177,9 @@ class Cart:
         self.getCartItems().clear()
         order.notifyStaff()
         print("\n" + payment.generateReceipt(order))
+=======
+        order, invoice = self.__placeOrder()
+        print(invoice)
+        self.__cartItems.clear()
+        return order.totalCost
+>>>>>>> Stashed changes
