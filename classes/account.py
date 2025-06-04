@@ -102,14 +102,42 @@ class Account(InboxInterface):
             return False
         
         hashedPassword = cls.hashPassword(password)
-        insert_query = (
-            "INSERT INTO account"
-            "(AccountType, StreetAddress, UserName, Password, Email) "
-            f"VALUES ({accountPrivilege}, '{streetAddress}', '{username}', '{hashedPassword}', '{email}');"
+        insert_sql = """
+            INSERT INTO account
+              (AccountType, Email, StreetAddress, UserName, Password)
+            VALUES
+              (%s, %s, %s, %s, %s);
+        """
+        params = (accountPrivilege, email, streetAddress, username, hashedPassword)
+        success = db.query(insert_sql, params)
+        if not success:
+            print("SQL error on inserting new account.")
+            return False
+        
+        last_id_sql = "SELECT LAST_INSERT_ID();"
+        raw = db.query(last_id_sql)
+        if not isinstance(raw, list) or len(raw) == 0:
+            print("Error: could not retrieve last insert ID.")
+            return False
+        
+        row0 = raw[0]
+        if isinstance(row0, tuple):
+            new_account_id = row0[0]
+        elif isinstance(row0, dict):
+            new_account_id = list(row0.values())[0]
+        else:
+            print("Unexpected return type for LAST_INSERT_ID.")
+            return False
+        
+        newUser = cls(
+            accountPrivilege,
+            email,
+            streetAddress,
+            username,
+            hashedPassword,
+            accountID=new_account_id,
+            skipEmailValidation=True
         )
-        result = db.query(insert_query)
-        newUser = cls(accountPrivilege, email, streetAddress, username, hashedPassword)
-        cls.allAccounts.append(newUser)
         return newUser
     
     @classmethod
@@ -252,15 +280,13 @@ class Account(InboxInterface):
         return True
     
 class ownerAccount(Account):
-    def __init__(self, accountPrivilege: int, email, streetAddress, username, password, skipEmailValidation: bool = False):
-        super().__init__(1, email, streetAddress, username, password, skipEmailValidation=skipEmailValidation)
+    def __init__(self, accountPrivilege: int, email, streetAddress, username, password, accountID = None, skipEmailValidation: bool = False):
+        super().__init__(1, email, streetAddress, username, password, accountID, skipEmailValidation=skipEmailValidation)
         self.generatedStatistics = []
 
     @classmethod
     def signup(cls, accountPrivilege: int, email: str, streetAddress: str, username: str, password: str, db):
-        newOwner = super().signup(1, email, streetAddress, username, password, db)
-        print("Owner signup successful.")
-        return newOwner
+        return super().signup(1, email, streetAddress, username, password, db)
     
     def fetchData(data: str):
         
@@ -325,20 +351,18 @@ class ownerAccount(Account):
         print()
 
 class staffAccount(Account):
-    def __init__(self, accountPrivilege: int, email, streetAddress, username, password, skipEmailValidation: bool = False):
-        super().__init__(2, email, streetAddress, username, password, skipEmailValidation=skipEmailValidation)
+    def __init__(self, accountPrivilege: int, email, streetAddress, username, password, accountID = None, skipEmailValidation: bool = False):
+        super().__init__(2, email, streetAddress, username, password, accountID, skipEmailValidation=skipEmailValidation)
         self.receipt = []
         self.invoice = []
 
     @classmethod
     def signup(cls, accountPrivilege: int, email: str, streetAddress: str, username: str, password: str, db):
-        newStaff = super().signup(2, email, streetAddress, username, password, db)
-        print("Staff signup successful.")
-        return newStaff
+        return super().signup(2, email, streetAddress, username, password, db)
 
 class customerAccount(Account):
-    def __init__(self, accountPrivilege: int, email, streetAddress, username, password, cart: Cart = None, skipEmailValidation: bool = False):
-        super().__init__(3, email, streetAddress, username, password, skipEmailValidation=skipEmailValidation)
+    def __init__(self, accountPrivilege: int, email, streetAddress, username, password, cart: Cart = None, accountID = None, skipEmailValidation: bool = False):
+        super().__init__(3, email, streetAddress, username, password, accountID, skipEmailValidation=skipEmailValidation)
         self.receipt = []
         self.invoice = []
         if cart is None:
@@ -348,5 +372,4 @@ class customerAccount(Account):
 
     @classmethod
     def signup(cls, accountPrivilege: int, email: str, streetAddress: str, username: str, password: str, db):
-        newCustomer = super().signup(3, email, streetAddress, username, password, db)
-        return newCustomer
+        return super().signup(3, email, streetAddress, username, password, db)

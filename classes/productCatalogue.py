@@ -24,7 +24,7 @@ class ProductCatalogue:
         except (KeyError, TypeError):
             brand_enum = Brand.BrandA
 
-        return Product(name, description, price, stock_qty, category_enum, brand_enum)
+        return Product(name, description, price, stock_qty, category_enum, brand_enum, prod_id)
     
     def removeProduct(self, productID: int, db):
         try:
@@ -36,30 +36,48 @@ class ProductCatalogue:
         result = db.query(delete_sql)
         return True
 
-    def addProduct(self, product: Product, db):
-        if not isinstance(product, Product):
-            return False
+    def addProduct(self, name: str, description: str, price: float, quantity: int, category: Category, brand: Brand, db):
+        name_esc = name.replace("'", "''")
+        desc_esc = description.replace("'", "''")
+        cat_name = category.name
+        brand_name = brand.name
 
-        name_esc        = product.name.replace("'", "''")
-        desc_esc        = product.description.replace("'", "''")
-        cat_name        = product.category.value
-        brand_name      = product.brand.value
-        price_val       = int(product.price)
-        stock_val       = int(product.quantity)
-
-        insert_sql = f"""
-        INSERT INTO productgood (Name, Description, Price, StockQuantity, Category, Brand)
-        VALUES (
-            '{name_esc}',
-            '{desc_esc}',
-            {price_val},
-            {stock_val},
-            {cat_name},
-            {brand_name}
-        );
+        insert_sql = """
+            INSERT INTO productgood
+              (Name, Description, Price, StockQuantity, Category, Brand)
+            VALUES
+              (%s, %s, %s, %s, %s, %s);
         """
-        result = db.query(insert_sql)
-        return True
+        params = (name_esc, desc_esc, price, quantity, cat_name, brand_name)
+        ok = db.query(insert_sql, params)
+        if not ok:
+            print("SQL error: could not insert new product.")
+            return None
+
+        row = db.query("SELECT LAST_INSERT_ID();")
+        if not isinstance(row, list) or len(row) == 0:
+            print("Error fetching new ProductID.")
+            return None
+
+        first = row[0]
+        if isinstance(first, tuple):
+            new_prod_id = first[0]
+        elif isinstance(first, dict):
+            new_prod_id = list(first.values())[0]
+        else:
+            print("Unexpected format for LAST_INSERT_ID.")
+            return None
+
+        new_product = Product(
+            name=name,
+            description=description,
+            price=price,
+            quantity=quantity,
+            category=category,
+            brand=brand,
+            productID=new_prod_id
+        )
+        return new_product
     
     def fetchAllProducts(self, db):
         select_sql = """

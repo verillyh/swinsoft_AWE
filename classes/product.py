@@ -11,11 +11,14 @@ class Category(Enum):
     MobilePhone = 2
     Computer = 3
 
-class Product:
-    _id_counter = itertools.count(start=1)  # Auto-incrementing ID
+_id_counter = itertools.count(start=1)  # Auto-incrementing ID
 
-    def __init__(self, name: str, description: str, price: float, quantity: int, category: Category, brand: Brand):
-        self.id = next(Product._id_counter)
+class Product:
+    def __init__(self, name: str, description: str, price: float, quantity: int, category: Category, brand: Brand, productID: int = None):
+        if productID is not None:
+            self.id = int(productID)
+        else:
+            self.id = next(_id_counter)
         self.name = name
         self.description = description
         self.price = float(price)

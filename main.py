@@ -117,7 +117,7 @@ def searchProduct(productCatalogue: ProductCatalogue):
 
 def addProductToCart(productCatalogue: ProductCatalogue):
     browseCatalogue(productCatalogue)
-    choice = int(input("Enter product ID to add to cart"))
+    choice = int(input("Enter product ID to add to cart: "))
     product = productCatalogue.fetchProductByID(choice, _db)
     if not product:
         print("No product with this ID")
@@ -157,36 +157,50 @@ def addRemoveProduct(productCatalogue: ProductCatalogue):
         print("                ADD NEW PRODUCT                     ")
         print("# ==================================================\n")
 
-        name        = input("Enter Product Name    : ").strip()
-        description = input("Enter Description     : ").strip()
-
-        # Ask price & stock
-        price_str   = input("Enter Price ($)       : ").strip()
-        qty_str     = input("Enter Stock Quantity  : ").strip()
+        name    = input("Enter product name       : ").strip()
+        desc    = input("Enter product description: ").strip()
         try:
-            price    = float(price_str)
-            quantity = int(qty_str)
+            price = float(input("Enter product price      : ").strip())
         except ValueError:
-            print("\nInvalid price or quantity. Product not added.")
-            input("\nPress Enter to return to the menu…")
+            print("Invalid price. Aborting.")
+            input("Press Enter to continue…")
+            return
+        
+        try:
+            qty = int(input("Enter product quantity   : ").strip())
+        except ValueError:
+            print("Invalid quantity. Aborting.")
+            input("Press Enter to continue…")
             return
 
-        print("\nAvailable Brands:")
-        for b in Brand:
-            print(f"[{b.value}] {b.name}")
-        brand_idx = int(input("Enter Brand (number): ").strip())
-        brand = Brand(brand_idx)
-
-        print("\nAvailable Categories:")
+        print("\nChoose Category:")
         for c in Category:
             print(f"[{c.value}] {c.name}")
-        cat_idx = int(input("Enter Category (number): ").strip())
-        category = Category(cat_idx)
+        try:
+            cval = int(input("Enter number (1‐3): ").strip())
+            category = Category(cval)
+        except (ValueError, KeyError):
+            print("Invalid category. Aborting.")
+            input("Press Enter to continue…")
+            return
 
-        product = Product(name, description, price, quantity, category, brand)
-        productCatalogue.addProduct(product, _db)
-        print(f"\nProduct \"{product.name}\" queued to be added.")
-        input("\nPress Enter to return to the menu…")
+        print("\nChoose Brand:")
+        for b in Brand:
+            print(f"[{b.value}] {b.name}")
+        try:
+            bval = int(input("Enter number (1‐3): ").strip())
+            brand = Brand(bval)
+        except (ValueError, KeyError):
+            print("Invalid brand. Aborting.")
+            input("Press Enter to continue…")
+            return
+
+        new_prod = productCatalogue.addProduct(name, desc, price, qty, category, brand, _db)
+        if new_prod:
+            print(f"\nProduct created! It has ProductID = {new_prod.id}.")
+        else:
+            print("\nFailed to create product. See errors above.")
+        input("\nPress Enter to return to the Main Menu…")
 
     elif choice == "2":
         clearScreen()
