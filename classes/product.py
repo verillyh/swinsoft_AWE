@@ -20,15 +20,13 @@ class Product:
         self.description = description
         self.price = float(price)
         self.quantity = int(quantity)
-        category_enum = Category[category]
-        if not isinstance(category_enum, Category):
-            raise ValueError("category must be an instance of Category Enum")
-        self.category = category_enum
+        if not isinstance(category, Category):
+            raise ValueError("category must be a Category enum member")
+        self.category = category
 
-        brand_enum = Brand[brand]
-        if not isinstance(brand_enum, Brand):
-            raise ValueError("brand must be an instance of Brand Enum")
-        self.brand = brand_enum
+        if not isinstance(brand, Brand):
+            raise ValueError("brand must be a Brand enum member")
+        self.brand = brand
 
     def __str__(self):
         return (
