@@ -45,7 +45,7 @@ def loginUI():
     input("\nPress Enter to continue…")
     return True
 
-def SignupUI():
+def SignupUI(logInNewUser: bool = True):
     global CURRENT_USER
     clearScreen()
     print("# ==================================================")
@@ -68,9 +68,13 @@ def SignupUI():
         input("\nPress Enter to continue…")
         return False
 
-    CURRENT_USER = new_user
-    clearScreen()
-    print(f"Account created! Logged in as '{new_user.username}'.")
+    if logInNewUser:
+        CURRENT_USER = new_user
+        clearScreen()
+        print(f"Account created! Logged in as '{new_user.username}'.")
+    else:
+        clearScreen()
+        print(f"Staff account '{new_user.username}' was successfully created.")
     input("\nPress Enter to continue…")
     return True
 
@@ -295,6 +299,8 @@ def modifyProduct(productCatalogue: ProductCatalogue):
     input("Press Enter to return to the Main Menu…")
 
 def manageStaff():
+    global CURRENT_USER
+
     clearScreen()
     print("# ============================================")
     print("               MANAGE STAFF ACCOUNTS          ")
@@ -310,23 +316,56 @@ def manageStaff():
         print("# ============================================")
         print("                ADD STAFF                     ")
         print("# ============================================\n")
-        _ = SignupUI()
+
+        new_email       = input("Enter staff email       : ").strip()
+        new_street      = input("Enter staff street addr : ").strip()
+        new_username    = input("Enter staff username    : ").strip()
+        new_password    = input("Enter staff password (≥8): ").strip()
+
+        owner = CURRENT_USER
+        if not isinstance(owner, ownerAccount):
+            print("Error: only an Owner may create staff accounts.")
+        else:
+            success = owner.createStaff(
+                new_email,
+                new_street,
+                new_username,
+                new_password,
+                _db
+            )
+            if success:
+                print("\nStaff member was successfully created.")
+            else:
+                print("\nCould not create staff. Check the email format or try again.")
+
         input("\nPress Enter to return to the Main Menu…")
 
     elif choice == "2":
         clearScreen()
         print("# ============================================")
         print("                STAFF LIST                    ")
-        print("# ============================================\n")
-        staff_id = input("Enter Staff ID to remove: ").strip()
+        print("# ============================================")
+        staff_id_str = input("Enter Staff ID to remove: ").strip()
 
+        try:
+            staff_id = int(staff_id_str)
+        except ValueError:
+            print("\nInvalid ID. Returning to menu.")
+            input("\nPress Enter to return to the menu…")
+            return
+
+        CURRENT_USER.deleteStaff(staff_id, _db)
+        print(f"\nRequested removal of StaffID {staff_id}.")
+       
         input("\nPress Enter to return to the Main Menu…")
 
     elif choice == "3":
         clearScreen()
         print("# ============================================")
         print("                STAFF LIST                    ")
-        print("# ============================================\n")
+        print("# ============================================")
+        
+        CURRENT_USER.listStaff(_db)
 
         input("Press Enter to return to the Main Menu…")
 

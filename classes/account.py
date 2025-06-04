@@ -270,23 +270,59 @@ class ownerAccount(Account):
         
         return False
     
-    def createStaff(self, accountPrivilege: int, email: str, streetAddress: str, username: str, password: str):
-        staff_account = staffAccount.signup(2, email, streetAddress, username, password)
-        if isinstance(staff_account, Account):
-            print("Staff account created.")
+    def createStaff(self, email: str, streetAddress: str, username: str, password: str, db):
+        new_staff = staffAccount.signup(2, email, streetAddress, username, password, db)
+        if isinstance(new_staff, Account):
+            print("Staff account created in database.")
             return True
         else:
             print("Failed to create staff account.")
             return False
     
-    def deleteStaff(self, staffID: int):
-        # delete_query = (
-        #     "DELETE FROM accounts "
-        #     f"WHERE accountID = {staffID} AND accountPrivilege = 2;"
-        # )
-        # result = _db.query(delete_query)
-        # print(f"Deleting staff ID={staffID}.")
+    def deleteStaff(self, staffID: int, db):
+        try:
+            pid = int(staffID)
+        except ValueError:
+            return False
+
+        delete_sql = f"DELETE FROM account WHERE AccountID = {pid} AND AccountType = 'Staff';"
+        result = db.query(delete_sql)
         return True
+    
+    def listStaff(self, db):
+        select_sql = """
+        SELECT 
+            AccountID,
+            UserName,
+            StreetAddress,
+            Email
+        FROM account 
+        WHERE AccountType = 'Staff'
+        """
+        raw = db.query(select_sql)
+
+        if not isinstance(raw, list) or len(raw) == 0:
+            print("\nNo staff found.\n")
+            return
+
+        print("\n{:<10} {:<20} {:<30} {:<30}".format("StaffID", "Username", "Street Address", "Email"))
+        print("-" * 95)
+
+        for row in raw:
+            if isinstance(row, dict):
+                sid    = row.get("AccountID")
+                uname  = row.get("UserName")
+                street = row.get("StreetAddress")
+                email  = row.get("Email")
+            else:
+                try:
+                    sid, uname, street, email = row
+                except (ValueError, TypeError):
+                    continue
+
+            print("{:<10} {:<20} {:<30} {:<30}".format(sid, uname, street, email))
+
+        print()
 
 class staffAccount(Account):
     def __init__(self, accountPrivilege: int, email, streetAddress, username, password, skipEmailValidation: bool = False):
