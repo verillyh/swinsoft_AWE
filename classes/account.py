@@ -361,14 +361,11 @@ class staffAccount(Account):
         return super().signup(2, email, streetAddress, username, password, db)
 
 class customerAccount(Account):
-    def __init__(self, accountPrivilege: int, email, streetAddress, username, password, cart: Cart = None, accountID = None, skipEmailValidation: bool = False):
+    def __init__(self, accountPrivilege: int, email, streetAddress, username, password, accountID = None, skipEmailValidation: bool = False):
         super().__init__(3, email, streetAddress, username, password, accountID, skipEmailValidation=skipEmailValidation)
         self.receipt = []
         self.invoice = []
-        if cart is None:
-            self.cart = Cart(self.accountID)
-        else:
-            self.cart = cart
+        self.cart = Cart(self.accountID)
 
     @classmethod
     def signup(cls, accountPrivilege: int, email: str, streetAddress: str, username: str, password: str, db):
