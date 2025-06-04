@@ -60,10 +60,21 @@ class ProductCatalogue:
         categories = set(p.get_category() for p in products if p.get_brand() in self.brandFilter)
         return list(categories)
 
-    def searchProduct(self, desc: str):
-        desc = desc.lower()
+    def searchProduct(self, keyword: str):
+        keyword = keyword.lower()
         products = self._fetchAllProducts()
-        return [p for p in products if desc in p.get_description().lower() and p.get_brand() in self.brandFilter and p.get_category() in self.categoryFilter]
+        return [
+            p for p in products
+            if (
+                keyword in p.get_name().lower()
+                or keyword in p.get_description().lower()
+                or keyword in p.get_brand().name.lower()
+                or keyword in p.get_category().name.lower()
+            )
+            and p.get_brand() in self.brandFilter
+            and p.get_category() in self.categoryFilter
+        ]
+
 
     def modifyProductDetails(self, accountPrivilege: int) -> bool:
         return accountPrivilege >= 1
@@ -205,6 +216,35 @@ class ProductCatalogue:
         else:
             print("❌ Product not found.")
 
+    def searchProductUI(self):
+        print("\n# ==================================================")
+        print("               SEARCH PRODUCT BY KEYWORD")
+        print("# ==================================================\n")
+        
+        keyword = input("Enter product name or keyword: ").strip().lower()
+        if not keyword:
+            print("❌ No keyword entered.")
+            return
+
+        results = self.searchProduct(keyword)
+
+        if not results:
+            print("❌ No matching products found.\n")
+            return
+
+        print("\nResults:")
+        for product in results:
+            print(f"\n[{product.get_id()}] {product.get_name()}")
+            print(f"Brand     : {product.get_brand().name}")
+            print(f"Category  : {product.get_category().name}")
+            print(f"Price     : ${product.get_price():.2f}")
+            print(f"Stock     : {product.get_quantity()}")
+            print(f"Description: {product.get_description()}")
+        
+        print("\n--------------------------------------------------")
+
+
+
 # ===== MAIN TESTING =====
 if __name__ == "__main__":
     db = Database("s104354565_db", user="s104354565", password="Ping13749&&")
@@ -212,8 +252,10 @@ if __name__ == "__main__":
     if db.connect("s104354565_db"):
         catalogue = ProductCatalogue(db)
         catalogue.productUI()
-        catalogue.fetchProductDetailsUI()
+        #catalogue.fetchProductDetailsUI()
         # catalogue.addProductUI()
         # catalogue.removeProductUI()
-        catalogue.modifyProductDetailsUI()
+        catalogue.searchProductUI()
+        #catalogue.browseCatalogue()
+        #catalogue.modifyProductDetailsUI()
         db.disconnect("s104354565_db")
