@@ -41,7 +41,7 @@ class ProductCatalogue:
             p.get_brand_id()
         )
         result = self.db.query(query, params)
-        return result and result[0].startswith("✅")
+        return result 
 
     def removeProduct(self, productId: int) -> bool:
         if not self.db.state:
@@ -49,7 +49,7 @@ class ProductCatalogue:
             return False
         query = "DELETE FROM ProductGood WHERE ProductID = %s"
         result = self.db.query(query, (productId,))
-        return result and result[0].startswith("✅")
+        return result
 
     def fetchProductDetail(self, productId: int):
         products = self._fetchAllProducts()
@@ -120,7 +120,7 @@ class ProductCatalogue:
             return
 
         result = self.db.query(query, params)
-        if result and result[0].startswith("✅"):
+        if result:
             print("✅ Product updated successfully.")
         else:
             print("❌ Failed to update product.")
