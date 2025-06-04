@@ -5,33 +5,23 @@ from classes.filter import Statisticable
 from abc import abstractmethod
 from classes.inboxMessage import InboxMessage
 from classes.inboxInterface import InboxInterface
-from classes.database import Database
-
-# Database connection
-_db = Database("name")
-_db.connect("name")
-_db.query("""
-CREATE TABLE IF NOT EXISTS accounts (
-    accountID INTEGER PRIMARY KEY,
-    accountPrivilege INTEGER NOT NULL,
-    email TEXT NOT NULL UNIQUE,
-    streetAddress TEXT,
-    username TEXT NOT NULL UNIQUE,
-    passwordHash TEXT NOT NULL
-);
-""".strip())
+from classes.cart import Cart
 
 _id_counter = itertools.count(start=1)
 
 class Account(InboxInterface):
-    def __init__(self, accountPrivilege: int, email: str, streetAddress: str, username: str, passwordHash: str, accountID: int = None):
+    allAccounts: list["Account"] = []
+    def __init__(self, accountPrivilege: int, email: str, streetAddress: str, username: str, passwordHash: str, accountID: int = None, *, skipEmailValidation: bool = False):
         if accountID is not None:
             self.accountID = accountID
         else:
             self._accountID = next(_id_counter)
 
         self.accountPrivilege = accountPrivilege
-        self.email = email
+        if skipEmailValidation:
+            self._Account__email = email
+        else:
+            self.email = email
         self.streetAddress = streetAddress
         self.username = username
         self.__passwordHash = passwordHash
@@ -101,7 +91,7 @@ class Account(InboxInterface):
 
     @classmethod
     @abstractmethod
-    def signup(cls, accountPrivilege: int, email: str, streetAddress: str, username: str, password: str):
+    def signup(cls, accountPrivilege: int, email: str, streetAddress: str, username: str, password: str, db):
         email = email.strip()
         streetAddress = streetAddress.strip()
         username = username.strip()
@@ -113,50 +103,76 @@ class Account(InboxInterface):
         
         hashedPassword = cls.hashPassword(password)
         insert_query = (
-            "INSERT INTO accounts "
-            "(accountPrivilege, email, streetAddress, username, passwordHash) "
-            f"VALUES ({accountPrivilege}, '{email}', '{streetAddress}', '{username}', '{hashedPassword}');"
+            "INSERT INTO account"
+            "(AccountType, StreetAddress, UserName, Password, Email) "
+            f"VALUES ({accountPrivilege}, '{streetAddress}', '{username}', '{hashedPassword}', '{email}');"
         )
-        result = _db.query(insert_query)
+        result = db.query(insert_query)
         newUser = cls(accountPrivilege, email, streetAddress, username, hashedPassword)
+        cls.allAccounts.append(newUser)
         return newUser
     
     @classmethod
-    def login(cls, usernameEmail: str, password: str):
+    def login(cls, usernameEmail: str, password: str, db):
         usernameEmail = usernameEmail.strip()
         password = password.strip()
         hashedPassword = cls.hashPassword(password)
 
-        select_query = (
-            "SELECT accountID, accountPrivilege, email, streetAddress, username, passwordHash "
-            "FROM accounts "
-            f"WHERE (username='{usernameEmail}' OR email='{usernameEmail}') "
-            f"AND passwordHash='{hashedPassword}';"
-        )
-        result = _db.query(select_query)
+        select_query = """
+            SELECT
+            AccountID,
+            UserName,
+            Password,
+            StreetAddress,
+            AccountType,
+            Email
+            FROM account
+            WHERE (UserName = %s OR Email = %s)
+            AND Password = %s;
+        """
+        params = (usernameEmail, usernameEmail, hashedPassword)
 
-        if isinstance(result, str) and result.startswith("Error:"):
-            print(result)
-            return False
-        
-        if len(result) == 0:
-            print("Login failed: no matching account.")
-            return False
+        result = db.query(select_query, params)
+        if not isinstance(result, list) or len(result) == 0:
+            return None
 
         row = result[0]
-        db_accountID, db_privilege, db_email, db_street, db_username, db_passwordHash = row
+        db_accountID    = row["AccountID"]
+        db_username     = row["UserName"]
+        db_passwordHash = row["Password"]
+        db_street       = row["StreetAddress"]
+        db_privilege    = row["AccountType"]
+        db_email        = row["Email"]
+        if db_privilege == "Owner":
+            user = ownerAccount(
+                db_privilege,
+                db_email,
+                db_street,
+                db_username,
+                db_passwordHash,
+                skipEmailValidation=True
+            )
+        elif db_privilege == "Staff":
+            user = staffAccount(
+                db_privilege,
+                db_email,
+                db_street,
+                db_username,
+                db_passwordHash,
+                skipEmailValidation=True
+            )
+        else:
+            user = customerAccount(
+                db_privilege,
+                db_email,
+                db_street,
+                db_username,
+                db_passwordHash,
+                skipEmailValidation=True
+            )
 
-        user = cls(
-            db_privilege,
-            db_email,
-            db_street,
-            db_username,
-            db_passwordHash,
-            accountID=db_accountID
-        )
-        print("Login succeeded.")
         return user
-
+        
     def modifyAccountDetail(self, field: str, newValue: str):
         field = field.strip()
 
@@ -191,12 +207,12 @@ class Account(InboxInterface):
             update_field = f"passwordHash = '{hashedPassword}'"
             self.__passwordHash = hashedPassword
 
-        update_query = (
-            f"UPDATE accounts "
-            f"SET {update_field} "
-            f"WHERE accountID = {self._accountID};"
-        )
-        result = _db.query(update_query)
+        # update_query = (
+        #     f"UPDATE accounts "
+        #     f"SET {update_field} "
+        #     f"WHERE accountID = {self._accountID};"
+        # )
+        # result = _db.query(update_query)
 
         print("Account detail modified.")
         return True
@@ -216,40 +232,39 @@ class Account(InboxInterface):
                 print(f"FROM: {msg.sender} → {msg.content}")  
 
     def listOrders(self):
-        if self.accountPrivilege == 3:
-            query = (
-                "SELECT orderID, customerID, status, items "
-                "FROM orders "
-                f"WHERE customerID = {self._accountID};"
-            )
-        elif self.accountPrivilege == 1 or self.accountPriviledge == 2:
-            query = "SELECT orderID, customerID, status, items FROM orders;"
-        else:
-            print("You do not have permission to list order.")
-            return False
-        result = _db.query(query)
+        # if self.accountPrivilege == 3:
+        #     query = (
+        #         "SELECT orderID, customerID, status, items "
+        #         "FROM orders "
+        #         f"WHERE customerID = {self._accountID};"
+        #     )
+        # elif self.accountPrivilege == 1 or self.accountPriviledge == 2:
+        #     query = "SELECT orderID, customerID, status, items FROM orders;"
+        # else:
+        #     print("You do not have permission to list order.")
+        #     return False
+        # result = _db.query(query)
 
-        if "Result of query" not in result:
-            print("No orders found or error in query.")
-            return False
-        print(f"\n--- Output for Orders ---\n{result}\n")
+        # if "Result of query" not in result:
+        #     print("No orders found or error in query.")
+        #     return False
+        # print(f"\n--- Output for Orders ---\n{result}\n")
         return True
     
 class ownerAccount(Account):
-    def __init__(self, accountPrivilege: int, email, streetAddress, username, password):
-        super().__init__(1, email, streetAddress, username, password)
+    def __init__(self, accountPrivilege: int, email, streetAddress, username, password, skipEmailValidation: bool = False):
+        super().__init__(1, email, streetAddress, username, password, skipEmailValidation=skipEmailValidation)
         self.generatedStatistics = []
 
     @classmethod
-    def signup(cls, accountPrivilege: int, email: str, streetAddress: str, username: str, password: str):
-        newOwner = super().signup(1, email, streetAddress, username, password)
+    def signup(cls, accountPrivilege: int, email: str, streetAddress: str, username: str, password: str, db):
+        newOwner = super().signup(1, email, streetAddress, username, password, db)
         print("Owner signup successful.")
         return newOwner
     
     def fetchData(data: str):
-        query = f""
-        result = _db.query(query)
-        return result
+        
+        return None
 
     def createStatistics():
         
@@ -265,104 +280,37 @@ class ownerAccount(Account):
             return False
     
     def deleteStaff(self, staffID: int):
-        delete_query = (
-            "DELETE FROM accounts "
-            f"WHERE accountID = {staffID} AND accountPrivilege = 2;"
-        )
-        result = _db.query(delete_query)
-        print(f"Deleting staff ID={staffID}.")
+        # delete_query = (
+        #     "DELETE FROM accounts "
+        #     f"WHERE accountID = {staffID} AND accountPrivilege = 2;"
+        # )
+        # result = _db.query(delete_query)
+        # print(f"Deleting staff ID={staffID}.")
         return True
 
 class staffAccount(Account):
-    def __init__(self, accountPrivilege: int, email, streetAddress, username, password):
-        super().__init__(2, email, streetAddress, username, password)
+    def __init__(self, accountPrivilege: int, email, streetAddress, username, password, skipEmailValidation: bool = False):
+        super().__init__(2, email, streetAddress, username, password, skipEmailValidation=skipEmailValidation)
         self.receipt = []
         self.invoice = []
 
     @classmethod
-    def signup(cls, accountPrivilege: int, email: str, streetAddress: str, username: str, password: str):
-        newStaff = super().signup(2, email, streetAddress, username, password)
+    def signup(cls, accountPrivilege: int, email: str, streetAddress: str, username: str, password: str, db):
+        newStaff = super().signup(2, email, streetAddress, username, password, db)
         print("Staff signup successful.")
         return newStaff
 
 class customerAccount(Account):
-    def __init__(self, accountPrivilege: int, email, streetAddress, username, password, cart):
-        super().__init__(3, email, streetAddress, username, password)
+    def __init__(self, accountPrivilege: int, email, streetAddress, username, password, cart: Cart = None, skipEmailValidation: bool = False):
+        super().__init__(3, email, streetAddress, username, password, skipEmailValidation=skipEmailValidation)
         self.receipt = []
         self.invoice = []
-        self.cart = cart if cart is not None else []
+        if cart is None:
+            self.cart = Cart(self.accountID)
+        else:
+            self.cart = cart
 
-    def signup(email: str, streetAddress: str, username: str, password: str):
-        newCustomer = super().signup(3, email, streetAddress, username, password)
+    @classmethod
+    def signup(cls, accountPrivilege: int, email: str, streetAddress: str, username: str, password: str, db):
+        newCustomer = super().signup(3, email, streetAddress, username, password, db)
         return newCustomer
-
-def signupUI():
-    print("--- Signup ---")
-    email = input("Email: ").strip()
-    streetAddress = input("Street Address: ").strip()
-    username = input("Username: ").strip()
-    password = input("Password (≥8 chars): ").strip()
-
-    new_account = Account.signup(3, email, streetAddress, username, password)
-    if new_account:
-        print("Customer signup successful.\n")
-    else:
-        print("Failed to sign up.\n")
-
-def loginUI():
-    print("--- Login ---")
-    identifier = input("Username or Email: ").strip()
-    password = input("Password: ").strip()
-
-    account = Account.login(identifier, password)
-    if account:
-        print("Login successful.\n")
-        return account
-    else:
-        print("Login failed.\n")
-        return None
-
-def modifyAccountUI(user):
-    print("--- Modify Account ---")
-    field = input("Field to modify (email | username | streetAddress | password): ").strip()
-    newValue = input(f"New value for {field}: ").strip()
-    if user.modifyAccountDetail(field, newValue):
-        print("Account updated successfully.\n")
-    else:
-        print("Failed to update account.\n")
-
-def createStaffUI(owner: ownerAccount):
-    print("--- Create Staff Account ---")
-    email = input("Staff Email: ").strip()
-    streetAddress = input("Staff Street Address: ").strip()
-    username = input("Staff Username: ").strip()
-    password = input("Staff Password: ").strip()
-    if owner.createStaff(email, streetAddress, username, password):
-        print("Staff account created.\n")
-    else:
-        print("Failed to create staff account.\n")
-
-def deleteStaffUI(owner: ownerAccount):
-    print("--- Remove Staff Account ---")
-    try:
-        staffID = int(input("Staff AccountID to remove: ").strip())
-    except ValueError:
-        print("Invalid ID format.\n")
-        return
-    
-    if owner.deleteStaff(staffID):
-        print("Staff account removed.\n")
-    else:
-        print("Failed to remove staff account.\n")
-
-def createStatisticUI():
-    print("--- Creating Statistics ---")
-    Account.createStatistics()
-    print("Done.\n")
-
-def listOrdersUI(user: Account):
-    print("--- List Orders ---")
-    if not user.listOrders():
-        print("No orders to display.\n")
-    else:
-        print("Done listing orders.\n")
