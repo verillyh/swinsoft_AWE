@@ -1,6 +1,7 @@
 import itertools
+from classes.inboxInterface import InboxInterface
 
-class InboxMessage:
+class InboxMessage(InboxInterface):
     _id_counter = itertools.count(start=0)
     def __init__(self, message: str):
         self.inboxMessageID = next(InboxMessage._id_counter)

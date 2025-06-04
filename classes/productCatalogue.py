@@ -1,159 +1,234 @@
-from product import Product, Brand, Category
+from classes.product import Product, Brand, Category
 
 class ProductCatalogue:
+    _instance = None
+
+    def __new__(cls, *args, **kwargs):
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
+        return cls._instance
+
     def __init__(self):
-        self.allProducts = []
+        if not hasattr(self, "_initialized"):
+            self._initialized = True
 
-    def removeProduct(self, p: Product) -> bool:
-        if isinstance(p, Product) and p in self.allProducts:
-            self.allProducts.remove(p)
-            return True
-        return False
+    def _row_to_product(self, row: tuple):
+        (prod_id, name, description, price, stock_qty, cat_name, brand_name) = row
+        try:
+            category_enum = Category[cat_name]
+        except (KeyError, TypeError):
+            category_enum = Category.Television
 
-    def addProduct(self, p: Product) -> bool:
-        if isinstance(p, Product):
-            self.allProducts.append(p)
-            return True
-        return False
+        try:
+            brand_enum = Brand[brand_name]
+        except (KeyError, TypeError):
+            brand_enum = Brand.BrandA
+
+        return Product(name, description, price, stock_qty, category_enum, brand_enum, prod_id)
     
-    def fetchProductDetail(self, productId: int):
-        for product in self.allProducts:
-            if product.id == productId:
-                return product
-        return None  # Return None if no matching product is found
-
-
-    def productUI(self):
-        output = "\n# ==================================================\n"
-        output += "                PRODUCT CATALOGUE\n"
-        output += "# ==================================================\n\n"
-
-        if not self.allProducts:
-            output += "No products available.\n"
-        else:
-            for product in self.allProducts:
-                output += str(product) + "\n\n"
-
-        output += "--------------------------------------------------\n"
-        print(output)
-
-    def addProductUI(self):
-        add = ""  # initialize string for building output
-
-        add += ("\n# ==================================================\n")
-        add += ("                ADD NEW PRODUCT\n")
-        add += ("# ==================================================\n\n")
-
-        name = input("Enter Product Name    : ")
-
-        add += "Available Brands:\n"
-        for b in Brand:
-            add += f"[{b.value}] {b.name}\n"
-        print(add)
-        brand_input = int(input("Enter Brand           : "))
-        brand = Brand(brand_input)
-
-        print("Available Categories:")
-        for c in Category:
-            print(f"[{c.value}] {c.name}")
-        category_input = int(input("Enter Category        : "))
-        category = Category(category_input)
-
-        description = input("Enter Description     : ")
-        price = float(input("Enter Price ($)       : "))
-        quantity = int(input("Enter Initial Stock   : "))
-
-        confirm = input("\nConfirm add product? (y/n): ").strip().lower()
-        if confirm == 'y':
-            product = Product(name, description, price, quantity, category, brand)
-            self.addProduct(product)
-            print(f"\nProduct \"{product.name}\" added with ID: #{product.id}")
-        else:
-            print("\nProduct not added.")
-
-    def removeProductUI(self):
-        print("\n# ==================================================")
-        print("                REMOVE PRODUCT")
-        print("# ==================================================\n")
-
-        show =""
-        # Display current products
-        for product in self.allProducts:
-            
-            show += str(product) + "\n\n"
-        print(show)
-
-        # Ask for product ID to remove
+    def removeProduct(self, productID: int, db):
         try:
-            product_id = int(input("Enter Product ID to remove or [0] to return home: "))
+            pid = int(productID)
         except ValueError:
-            print("❌ Invalid input. Please enter a valid number.")
-            return
+            return False
 
-        if product_id == 0:
-            print("Returning to home...\n")
-            return
+        delete_sql = f"DELETE FROM productgood WHERE ProductID = {pid};"
+        result = db.query(delete_sql)
+        return True
 
-        # Search in product list
-        product = self.fetchProductDetail(product_id)
+    def addProduct(self, name: str, description: str, price: float, quantity: int, category: Category, brand: Brand, db):
+        name_esc = name.replace("'", "''")
+        desc_esc = description.replace("'", "''")
+        cat_name = category.name
+        brand_name = brand.name
 
-        if product:
-            confirm = input(f"Are you sure you want to remove \"{product.name}\"? (y/n): ").strip().lower()
-            if confirm == 'y':
-                self.removeProduct(product)
-                print(f"\nProduct \"{product.name}\" removed successfully.")
+        insert_sql = """
+            INSERT INTO productgood
+              (Name, Description, Price, StockQuantity, Category, Brand)
+            VALUES
+              (%s, %s, %s, %s, %s, %s);
+        """
+        params = (name_esc, desc_esc, price, quantity, cat_name, brand_name)
+        ok = db.query(insert_sql, params)
+        if not ok:
+            print("SQL error: could not insert new product.")
+            return None
+
+        row = db.query("SELECT LAST_INSERT_ID();")
+        if not isinstance(row, list) or len(row) == 0:
+            print("Error fetching new ProductID.")
+            return None
+
+        first = row[0]
+        if isinstance(first, tuple):
+            new_prod_id = first[0]
+        elif isinstance(first, dict):
+            new_prod_id = list(first.values())[0]
+        else:
+            print("Unexpected format for LAST_INSERT_ID.")
+            return None
+
+        new_product = Product(
+            name=name,
+            description=description,
+            price=price,
+            quantity=quantity,
+            category=category,
+            brand=brand,
+            productID=new_prod_id
+        )
+        return new_product
+    
+    def fetchAllProducts(self, db):
+        select_sql = """
+        SELECT 
+            ProductID,
+            Name,
+            Description,
+            Price,
+            StockQuantity,
+            Category,
+            Brand 
+        FROM productgood
+        """
+        raw = db.query(select_sql)
+
+        if not isinstance(raw, list):
+            print("Warning: fetchAllProducts expected list of tuples but got", type(raw))
+            return []
+
+        products = []
+        for row in raw:
+            if isinstance(row, tuple) and len(row) == 7:
+                tup = row
+            elif isinstance(row, dict):
+                try:
+                    tup = (
+                        row["ProductID"],
+                        row["Name"],
+                        row["Description"],
+                        row["Price"],
+                        row["StockQuantity"],
+                        row["Category"],
+                        row["Brand"]
+                    )
+                except KeyError:
+                    continue
             else:
-                print("\nProduct removal cancelled.")
-        else:
-            print("\n❌ Product not found.\n")
+                continue
+            prod_obj = self._row_to_product(tup)
+            products.append(prod_obj)
 
-    def fetchProductDetailsUI(self):
-        print("\n# ==================================================")
-        print("               SEARCH PRODUCT RESULT")
-        print("# ==================================================\n")
+        return products
+    
+    def fetchProductDetail(self, keyword: str, db):
+        kw = keyword.strip().lower().replace("'", "''")
+        select_sql = f"""
+        SELECT 
+            ProductID,
+            Name,
+            Description,
+            Price,
+            StockQuantity,
+            Category,
+            Brand
+        FROM productgood
+        WHERE 
+        LOWER(Name)        LIKE '%{kw}%' 
+        OR LOWER(Description) LIKE '%{kw}%' 
+        OR LOWER(Category)    LIKE '%{kw}%' 
+        OR LOWER(Brand)       LIKE '%{kw}%';
+        """
+        raw = db.query(select_sql)
 
-        # Ask for product ID
+        if not isinstance(raw, list) or len(raw) == 0:
+            return []
+
+        matches = []
+        for row in raw:
+            if isinstance(row, tuple) and len(row) == 7:
+                tup = row
+            elif isinstance(row, dict):
+                try:
+                    tup = (
+                        row["ProductID"],
+                        row["Name"],
+                        row["Description"],
+                        row["Price"],
+                        row["StockQuantity"],
+                        row["Category"],
+                        row["Brand"],
+                    )
+                except KeyError:
+                    continue
+            else:
+                continue
+            prod_obj = self._row_to_product(tup)
+            matches.append(prod_obj)
+
+        return matches
+    def fetchProductByID(self, productID: int, db):
         try:
-            product_id = int(input("Enter Product ID to view details or [0] to return home: "))
+            pid = int(productID)
+        except (ValueError, TypeError):
+            return None
+
+        select_sql = """
+            SELECT
+                ProductID,
+                Name,
+                Description,
+                Price,
+                StockQuantity,
+                Category,
+                Brand
+            FROM productgood
+            WHERE ProductID = %s
+            LIMIT 1;
+        """
+        params = (pid,)
+
+        raw = db.query(select_sql, params)
+
+        if not isinstance(raw, list) or len(raw) == 0:
+            return None
+
+        row = raw[0]
+
+        if isinstance(row, tuple) and len(row) == 7:
+            return self._row_to_product(row)
+
+        if isinstance(row, dict):
+            try:
+                pid_val        = row["ProductID"]
+                name           = row["Name"]
+                description    = row["Description"]
+                price          = row["Price"]
+                stock_qty      = row["StockQuantity"]
+                category_str   = row["Category"]
+                brand_str      = row["Brand"]
+            except KeyError:
+                return None
+            
+            return Product(
+                name=name,
+                description=description,
+                price=float(price),
+                quantity=int(stock_qty),
+                category=Category[category_str],
+                brand=Brand[brand_str]
+            )
+
+        return None
+    
+    def modifyProduct(self, productID: int, field, newValue, db):
+        try:
+            pid = int(productID)
         except ValueError:
-            print("❌ Invalid input. Please enter a valid number.")
-            return
+            return None
 
-        if product_id == 0:
-            print("Returning to home...\n")
-            return
+        update_sql = f"UPDATE productgood SET `{field}` = %s WHERE ProductID = %s;"
+        params     = (newValue, pid)
+        result = db.query(update_sql, params)
 
-        # Search in product list
-        product = self.fetchProductDetail(product_id)
-
-        if product:
-            print(f"\n[{product.id}] {product.name}")
-            print(f"Brand     : {product.brand.name}")
-            print(f"Category  : {product.category.name}")
-            print(f"Price     : ${product.price:.2f}")
-            print(f"Stock     : {product.quantity}")
-            print(f"Description: {product.description}")
-            print("\n--------------------------------------------------")
-        else:
-            print("\n❌ Product not found.\n")
-
-
-
-# ================== MAIN ==================
-
-if __name__ == "__main__":
-    catalogue = ProductCatalogue()
-
-    # Preload sample products
-    catalogue.addProduct(Product("TV", "4K Smart LED TV", 899.99, 8, Category.Television, Brand.A))
-    catalogue.addProduct(Product("Phone", "Latest 5G model", 1099.50, 12, Category.MobilePhone, Brand.B))
-    catalogue.addProduct(Product("Laptop", "Gaming powerhouse", 1999.00, 5, Category.Computer, Brand.C))
-
-# Display product UI
-#catalogue.productUI()
-
-#catalogue.fetchProductDetailsUI()
-
-# Add new product interactively
-#catalogue.addProductUI()
-catalogue.removeProductUI()
+        return True

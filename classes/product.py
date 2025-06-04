@@ -11,27 +11,30 @@ class Category(Enum):
     MobilePhone = 2
     Computer = 3
 
-class Product:
-    _id_counter = itertools.count(start=1)  # Auto-incrementing ID
+_id_counter = itertools.count(start=1)  # Auto-incrementing ID
 
-    def __init__(self, name: str, description: str, price: float, quantity: int, category: Category, brand: Brand):
-        self.id = next(Product._id_counter)
+class Product:
+    def __init__(self, name: str, description: str, price: float, quantity: int, category: Category, brand: Brand, productID: int = None):
+        if productID is not None:
+            self.id = int(productID)
+        else:
+            self.id = next(_id_counter)
         self.name = name
         self.description = description
         self.price = float(price)
         self.quantity = int(quantity)
-        
         if not isinstance(category, Category):
-            raise ValueError("category must be an instance of Category Enum")
+            raise ValueError("category must be a Category enum member")
         self.category = category
 
         if not isinstance(brand, Brand):
-            raise ValueError("brand must be an instance of Brand Enum")
+            raise ValueError("brand must be a Brand enum member")
         self.brand = brand
 
     def __str__(self):
         return (
-            f"[{self.id}] {self.name}\n"
+            f"ID        : {self.id}\n"
+            f"Name      : {self.name}\n"
             f"Brand     : {self.brand.name}\n"
             f"Category  : {self.category.name}\n"
             f"Price     : ${self.price:.2f}\n"
