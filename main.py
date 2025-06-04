@@ -4,7 +4,13 @@ import re
 
 from classes.account import Account, ownerAccount, staffAccount, customerAccount
 from classes.productCatalogue import ProductCatalogue
-from classes.product import Product
+from classes.product import Product, Brand, Category
+from classes.cart import Cart
+from classes.database import Database
+
+# Database connection
+_db = Database("awe")
+_db.connect("awe")
 
 CURRENT_USER: Account | None = None
 
@@ -19,7 +25,7 @@ def loginUI():
     print("                    LOGIN                          ")
     print("# ==================================================\n")
 
-    identifier = input("Enter email   : ").strip()
+    identifier = input("Enter email or username   : ").strip()
     password = input("Enter password: ").strip()
 
     if not identifier or not password:
@@ -27,7 +33,7 @@ def loginUI():
         input("\nPress Enter to continue…")
         return False
 
-    user = Account.login(identifier, password)
+    user = Account.login(identifier, password, _db)
     if not user:
         print("\nLogin failed. Check your credentials.")
         input("\nPress Enter to continue…")
@@ -53,11 +59,11 @@ def SignupUI():
     accountPrivilege = None
 
     if re.match(r"^[^@]+@owner+\.[^@]+$", email):
-        new_user = ownerAccount.signup(accountPrivilege, email, streetAddress, username, password)
+        new_user = ownerAccount.signup(accountPrivilege, email, streetAddress, username, password, _db)
     elif re.match(r"^[^@]+@staff+\.[^@]+$", email):
-        new_user = staffAccount.signup(accountPrivilege, email, streetAddress, username, password)
+        new_user = staffAccount.signup(accountPrivilege, email, streetAddress, username, password, _db)
     else:
-        new_user = customerAccount.signup(accountPrivilege, email, streetAddress, username, password)
+        new_user = customerAccount.signup(accountPrivilege, email, streetAddress, username, password, _db)
     if not new_user:
         input("\nPress Enter to continue…")
         return False
@@ -69,12 +75,13 @@ def SignupUI():
     return True
 
 def productUI(productCatalogue: ProductCatalogue):
-    if len(productCatalogue.allProducts) == 0:
+    all_products = productCatalogue.fetchAllProducts(_db)
+    if len(all_products) == 0:
         print("No products available.\n")
     else:
-        for product in productCatalogue.allProducts:
-            print(product)
-            print()
+        for prod in all_products:
+            print(prod)        
+            print("-" * 40)
 
 def browseCatalogue(productCatalogue: ProductCatalogue):
     clearScreen()
@@ -92,19 +99,27 @@ def searchProduct(productCatalogue: ProductCatalogue):
     print("                SEARCH PRODUCT                      ")
     print("# ==================================================\n")
     keyword = input("Enter product name or keyword: ").strip()
+    results = productCatalogue.fetchProductDetail(keyword, _db)
 
-    results = productCatalogue.fetchProductDetail(keyword)
-
-    amount = len(results)
-    if amount == 0:
-        print("No product match this keyword.\n")
+    if not results:
+        print("\nNo products match this keyword.\n")
     else:
-        print(f"\nFound {amount} matching products:\n")
-        for product in results:
-            print(product)
-            print()
+        print(f"\nFound {len(results)} matching product(s):\n")
+        for prod in results:
+            print(prod)
+            print("-" * 40)
 
-    input("Press Enter to return to the menu…")
+    input("\nPress Enter to return to the menu…")
+
+def addProductToCart(productCatalogue: ProductCatalogue):
+    browseCatalogue(productCatalogue)
+    choice = int(input("Enter product ID to add to cart"))
+    product = productCatalogue.fetchProductByID(choice, _db)
+    if not product:
+        print("No product with this ID")
+    else:
+        amount = int(input("Enter quantity: "))
+        Cart.addToCart(product, amount)
 
 def viewCart():
     clearScreen()
@@ -137,29 +152,55 @@ def addRemoveProduct(productCatalogue: ProductCatalogue):
         print("# ==================================================")
         print("                ADD NEW PRODUCT                     ")
         print("# ==================================================\n")
+
         name        = input("Enter Product Name    : ").strip()
-        brand       = input("Enter Brand           : ").strip()
-        category    = input("Enter Category        : ").strip()
         description = input("Enter Description     : ").strip()
-        price       = input("Enter Price ($)       : ").strip()
-        stock       = input("Enter Initial Stock   : ").strip()
 
-        newProduct = Product(name, description, price, stock, category, brand)
-        productCatalogue.addProduct(newProduct)
+        # Ask price & stock
+        price_str   = input("Enter Price ($)       : ").strip()
+        qty_str     = input("Enter Stock Quantity  : ").strip()
+        try:
+            price    = float(price_str)
+            quantity = int(qty_str)
+        except ValueError:
+            print("\nInvalid price or quantity. Product not added.")
+            input("\nPress Enter to return to the menu…")
+            return
 
-        input("\nPress Enter to return to the Main Menu…")
+        print("\nAvailable Brands:")
+        for b in Brand:
+            print(f"[{b.value}] {b.name}")
+        brand_idx = int(input("Enter Brand (number): ").strip())
+        brand = Brand(brand_idx)
+
+        print("\nAvailable Categories:")
+        for c in Category:
+            print(f"[{c.value}] {c.name}")
+        cat_idx = int(input("Enter Category (number): ").strip())
+        category = Category(cat_idx)
+
+        product = Product(name, description, price, quantity, category, brand)
+        productCatalogue.addProduct(product, _db)
+        print(f"\nProduct \"{product.name}\" queued to be added.")
+        input("\nPress Enter to return to the menu…")
 
     elif choice == "2":
         clearScreen()
         print("# ==================================================")
         print("                 REMOVE PRODUCT                     ")
         print("# ==================================================\n")
-        prod_name = int(input("Enter Product ID to remove: "))
 
-        productCatalogue.removeProduct(prod_name)
+        prod_id_str = input("Enter Product ID to remove: ").strip()
+        try:
+            prod_id = int(prod_id_str)
+        except ValueError:
+            print("\nInvalid ID. Returning to menu.")
+            input("\nPress Enter to return to the menu…")
+            return
 
-        input("\nPress Enter to return to the Main Menu…")
-
+        productCatalogue.removeProduct(prod_id, _db)
+        print(f"\nRequested removal of ProductID {prod_id}.")
+        input("\nPress Enter to return to the menu…")
     else:
         return
 
@@ -171,13 +212,86 @@ def viewStatistics():
 
     input("Press Enter to return to the Main Menu…")
 
-def modifyProduct():
+def modifyProduct(productCatalogue: ProductCatalogue):
     clearScreen()
     print("# ==================================================")
     print("            MODIFY PRODUCT CATALOGUE                ")
     print("# ==================================================\n")
-    prod_id = input("Enter Product ID to modify: ").strip()
+    prod_id = int(input("Enter Product ID to modify: "))
 
+    product = productCatalogue.fetchProductByID(prod_id, _db)
+    if not product:
+        print("No product with this ID")
+    else:
+        print("\nChoose a field to modify:")
+        print("[1] Product Name")
+        print("[2] Product Description")
+        print("[3] Product Brand")
+        print("[4] Product Category")
+        print("[5] Product Price")
+        print("[6] Product Quantity\n")
+        choice = input("Enter a choice: ").strip()
+        if choice not in ["1","2","3","4","5","6"]:
+            print("Wrong option")
+            input("Press Enter to return to the Main Menu…")
+            return
+
+        if choice == "1":
+            field = "Name"
+            newValue = input("Enter a new product name: ").strip()
+        elif choice == "2":
+            field = "Description"
+            newValue = input("Enter a new description: ").strip()
+        elif choice == "3":
+            print("\nSelect a new Brand from the list below:")
+            for member in Brand:
+                print(f"[{member.value}] {member.name}")
+            try:
+                num = int(input("Enter the number corresponding to the Brand: ").strip())
+                brand_enum = Brand(num)
+            except (ValueError, KeyError):
+                print("Invalid brand selection.")
+                input("Press Enter to return to the Main Menu…")
+                return
+
+            field = "Brand"
+            newValue = brand_enum.name
+        elif choice == "4":
+            print("\nSelect a new Category from the list below:")
+            for member in Category:
+                print(f"[{member.value}] {member.name}")
+            try:
+                num = int(input("Enter the number corresponding to the Category: ").strip())
+                category_enum = Category(num)
+            except (ValueError, KeyError):
+                print("Invalid category selection.")
+                input("Press Enter to return to the Main Menu…")
+                return
+
+            field = "Category"
+            newValue = category_enum.name
+        elif choice == "5":
+            field = "Price"
+            try:
+                newValue = float(input("Enter a new price: ").strip())
+            except ValueError:
+                print("Price must be a number.")
+                input("Press Enter to return to the Main Menu…")
+                return
+        else:
+            field = "StockQuantity"
+            try:
+                newValue = int(input("Enter a new quantity (integer): ").strip())
+            except ValueError:
+                print("Quantity must be an integer.")
+                input("Press Enter to return to the Main Menu…")
+                return
+
+        success = productCatalogue.modifyProduct(prod_id, field, newValue, _db)
+        if success:
+            print(f"{field} for Product #{prod_id} was updated successfully.")
+        else:
+            print(f"Failed to update {field}.")
     input("Press Enter to return to the Main Menu…")
 
 def manageStaff():
@@ -300,16 +414,16 @@ def main():
 
         elif CURRENT_USER.accountPrivilege == 3:
             customerMenu()
-            choice = int(input("Enter choice: "))
-            if choice == 1:
-                browseCatalogue(productCatalogue)
-            elif choice == 2:
+            choice = input("Enter choice: ").strip()
+            if choice == "1":
+                addProductToCart(productCatalogue)
+            elif choice == "2":
                 searchProduct(productCatalogue)
-            elif choice == 3:
+            elif choice == "3":
                 viewCart()
-            elif choice == 4:
+            elif choice == "4":
                 viewOrderHistory()
-            elif choice == 0:
+            elif choice == "0":
                 CURRENT_USER = None
             else:
                 continue
@@ -320,7 +434,7 @@ def main():
             if choice == 1:
                 addRemoveProduct(productCatalogue)
             elif choice == 2:
-                modifyProduct()
+                modifyProduct(productCatalogue)
             elif choice == 3:
                 browseCatalogue(productCatalogue)
             elif choice == 4:
@@ -338,7 +452,7 @@ def main():
             elif choice == 2:
                 viewStatistics()
             elif choice == 3:
-                modifyProduct()
+                modifyProduct(productCatalogue)
             elif choice == 4:
                 manageStaff()
             elif choice == 5:
