@@ -6,6 +6,7 @@ DROP TABLE IF EXISTS BrandCategory;
 DROP TABLE IF EXISTS Brand;
 DROP TABLE IF EXISTS Category;
 DROP TABLE IF EXISTS Account;
+DROP TABLE IF EXISTS InboxMessage;
 
 CREATE TABLE Account (
     AccountID       INT             AUTO_INCREMENT  PRIMARY KEY,
@@ -188,4 +189,14 @@ CREATE TABLE OrderItem (
     UnitPrice       DECIMAL(10,2)   NOT NULL,
     FOREIGN KEY (OrderID) REFERENCES OrderRecord(OrderID),
     FOREIGN KEY (ProductID) REFERENCES ProductGood(ProductID)
+);
+
+CREATE TABLE InboxMessage (
+  MessageID         INT             AUTO_INCREMENT  PRIMARY KEY,
+  RecipientID       INT             NOT NULL,
+  Sender            VARCHAR(255)    NOT NULL,
+  Content           TEXT            NOT NULL,
+  IsRead            BOOLEAN         NOT NULL        DEFAULT FALSE,
+  CreatedAt         DATETIME        NOT NULL        DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (RecipientID) REFERENCES account(AccountID)
 );
