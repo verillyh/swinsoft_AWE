@@ -11,6 +11,8 @@ class ProductCatalogue:
     def __init__(self):
         if not hasattr(self, "_initialized"):
             self._initialized = True
+            self._brand_filter = list[Brand] = []
+            self._category_filter = list[Category] = []
 
     def __row_to_product(self, row: tuple, db):
         (product_id, product_name, product_desc, unit_price, stock_qty, cat_name, brand_name) = row
@@ -34,8 +36,8 @@ class ProductCatalogue:
         except ValueError:
             return False
 
-        delete_sql = f"DELETE FROM productgood WHERE ProductID = {pid};"
-        result = db.query(delete_sql)
+        delete_sql = f"DELETE FROM product_good WHERE ProductID = {pid};"
+        db.query(delete_sql)
         return True
 
     def add_product(self, productName: str, productDesc: str, unitPrice: float, quantity: int, category: Category, brand: Brand, db):
@@ -45,7 +47,7 @@ class ProductCatalogue:
         brand_name = brand.value
 
         insert_sql = """
-            INSERT INTO productgood
+            INSERT INTO product_good
               (Name, Description, UnitPrice, StockQuantity, CategoryID, BrandID)
             VALUES
               (%s, %s, %s, %s, %s, %s);
@@ -61,14 +63,15 @@ class ProductCatalogue:
             print("Error fetching new ProductID.")
             return None
 
-        first = row[0]
-        if isinstance(first, tuple):
-            new_product_id = first[0]
-        elif isinstance(first, dict):
-            new_product_id = list(first.values())[0]
-        else:
-            print("Unexpected format for LAST_INSERT_ID.")
-            return None
+        new_product_id = row[0]
+        # first = row[0]
+        # if isinstance(first, tuple):
+        #     new_product_id = first[0]
+        # elif isinstance(first, dict):
+        #     new_product_id = list(first.values())[0]
+        # else:
+        #     print("Unexpected format for LAST_INSERT_ID.")
+        #     return None
 
         new_product = Product(
             name=productName,
@@ -81,7 +84,7 @@ class ProductCatalogue:
         )
         return new_product
     
-    def fetch_all_products(self, db):
+    def get_all_products(self, db):
         select_sql = """
         SELECT 
             pg.ProductID,
@@ -91,15 +94,11 @@ class ProductCatalogue:
             pg.StockQuantity,
             c.CategoryName,
             b.BrandName 
-        FROM productgood pg
+        FROM product_good pg
         JOIN category c ON pg.CategoryID = c.CategoryID
         JOIN brand b ON pg.BrandID = b.BrandID;
         """
         raw = db.query(select_sql)
-
-        if not isinstance(raw, (list, tuple)):
-            print("Warning: fetchAllProducts expected list of tuples but got", type(raw))
-            return []
 
         products = []
         for row in raw:
@@ -124,7 +123,7 @@ class ProductCatalogue:
             products.append(prod_obj)
         return products
     
-    def fetch_product_detail(self, keyword: str, db):
+    def search_product(self, keyword: str, db):
         kw = keyword.strip().lower().replace("'", "''")
         select_sql = f"""
         SELECT 
@@ -135,7 +134,7 @@ class ProductCatalogue:
             pg.StockQuantity,
             c.CategoryName,
             b.BrandName
-        FROM productgood pg
+        FROM product_good pg
         JOIN category c ON pg.CategoryID = c.CategoryID
         JOIN brand b ON pg.BrandID = b.BrandID
         WHERE 
@@ -172,7 +171,7 @@ class ProductCatalogue:
             matches.append(prod_obj)
         return matches
     
-    def fetch_product_by_id(self, productID: int, db):
+    def get_product_by_id(self, productID: int, db):
         try:
             pid = int(productID)
         except (ValueError, TypeError):
@@ -187,7 +186,7 @@ class ProductCatalogue:
                 pg.StockQuantity,
                 c.CategoryName,
                 b.BrandName
-            FROM productgood pg
+            FROM product_good pg
             JOIN category c ON pg.CategoryID = c.CategoryID
             JOIN brand b ON pg.BrandID = b.BrandID
             WHERE pg.ProductID = %s
@@ -229,7 +228,7 @@ class ProductCatalogue:
             )
         return None
     
-    def modify_product(self, productID: int, field, newValue, db):
+    def modify_product_details(self, productID: int, field: str, newValue, db):
         try:
             pid = int(productID)
         except ValueError:
@@ -237,22 +236,33 @@ class ProductCatalogue:
 
         if field == "Category":
             update_sql = """
-                UPDATE productgood
+                UPDATE product_good
                 SET CategoryID = (SELECT CategoryID FROM category WHERE CategoryName = %s)
                 WHERE ProductID = %s;
             """
             params = (newValue.name, pid)
         elif field == "Brand":
             update_sql = """
-                UPDATE productgood
+                UPDATE product_good
                 SET BrandID = (SELECT BrandID FROM brand WHERE BrandName = %s)
                 WHERE ProductID = %s;
             """
             params = (newValue.name, pid)
         else:
             col = "UnitPrice" if field == "Price" else field
-            update_sql = f"UPDATE productgood SET `{col}` = %s WHERE ProductID = %s;"
+            update_sql = f"UPDATE product_good SET `{col}` = %s WHERE ProductID = %s;"
             params     = (newValue, pid)
 
-        result = db.query(update_sql, params)
-        return True
+        db.query(update_sql, params)
+
+    def browse_catalogue():
+        pass
+
+    def add_catalogue_filter(self, brand: Brand = None, category: Category = None):
+        self._brand_filter = brand
+        self._category_filter = category
+
+    def remove_catalogue_filter(self):
+        self._brand_filter = []
+        self._category_filter = []
+
