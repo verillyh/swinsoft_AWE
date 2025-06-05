@@ -1,12 +1,12 @@
-DROP TABLE IF EXISTS OrderItem;
+DROP TABLE IF EXISTS Order_Item;
 DROP TABLE IF EXISTS Invoice;
-DROP TABLE IF EXISTS OrderRecord;
-DROP TABLE IF EXISTS ProductGood;
-DROP TABLE IF EXISTS BrandCategory;
+DROP TABLE IF EXISTS Order_Record;
+DROP TABLE IF EXISTS Product_Good;
+DROP TABLE IF EXISTS Brand_Category;
 DROP TABLE IF EXISTS Brand;
 DROP TABLE IF EXISTS Category;
+DROP TABLE IF EXISTS Inbox_Message;
 DROP TABLE IF EXISTS Account;
-DROP TABLE IF EXISTS InboxMessage;
 
 CREATE TABLE Account (
     AccountID       INT             AUTO_INCREMENT  PRIMARY KEY,
@@ -17,7 +17,7 @@ CREATE TABLE Account (
     AccountType     ENUM('OWNER', 'STAFF', 'CUSTOMER') NOT NULL
 );
 
-CREATE TABLE OrderRecord (
+CREATE TABLE Order_Record (
     OrderID         INT             AUTO_INCREMENT  PRIMARY KEY,
     CustomerID      INT             NOT NULL,
     OrderDate       DATETIME        NOT NULL,
@@ -35,7 +35,7 @@ CREATE TABLE Invoice (
     CustomerID      INT             NOT NULL,
     AmountDue       DECIMAL(10,2)   NOT NULL,
     InvoiceStatus   ENUM('PENDING', 'PAID', 'CANCELLED') NOT NULL,
-    FOREIGN KEY (OrderID) REFERENCES OrderRecord(OrderID),
+    FOREIGN KEY (OrderID) REFERENCES Order_Record(OrderID),
     FOREIGN KEY (CustomerID) REFERENCES Account(AccountID)
 );
 
@@ -73,7 +73,7 @@ VALUES
   ('ASUS'),
   ('ACER');
 
-CREATE TABLE BrandCategory (
+CREATE TABLE Brand_Category (
     BrandID         INT             NOT NULL,
     CategoryID      INT             NOT NULL,
     PRIMARY KEY (BrandID, CategoryID),
@@ -81,7 +81,7 @@ CREATE TABLE BrandCategory (
     FOREIGN KEY (CategoryID) REFERENCES Category(CategoryID) ON DELETE CASCADE
 );
 
-INSERT INTO BrandCategory (BrandID, CategoryID)
+INSERT INTO Brand_Category (BrandID, CategoryID)
 VALUES
   (
     (SELECT BrandID FROM Brand WHERE BrandName = 'SAMSUNG'),
@@ -164,8 +164,7 @@ VALUES
     (SELECT CategoryID FROM Category WHERE CategoryName = 'COMPUTER_LAPTOP')
   );
 
-
-CREATE TABLE ProductGood (
+CREATE TABLE Product_Good (
     ProductID       INT             AUTO_INCREMENT  PRIMARY KEY,
     Name            VARCHAR(100)    NOT NULL,
     Description     VARCHAR(100)    NOT NULL,
@@ -173,25 +172,28 @@ CREATE TABLE ProductGood (
     StockQuantity   INT             NOT NULL,
     CategoryID      INT             NOT NULL,
     BrandID         INT             NOT NULL,
+    IsActive 		TINYINT(1) 		NOT NULL 		DEFAULT 1,
     FOREIGN KEY (CategoryID) REFERENCES Category(CategoryID),
     FOREIGN KEY (BrandID)    REFERENCES Brand(BrandID),
     FOREIGN KEY (BrandID, CategoryID)
-        REFERENCES BrandCategory(BrandID, CategoryID)
+        REFERENCES Brand_Category(BrandID, CategoryID)
         ON DELETE RESTRICT
         ON UPDATE CASCADE
 );
 
-CREATE TABLE OrderItem (
+CREATE TABLE Order_Item (
     OrderItemID     INT             AUTO_INCREMENT  PRIMARY KEY,
     OrderID         INT             NOT NULL,
     ProductID       INT             NOT NULL,
     Quantity        INT             NOT NULL,
     UnitPrice       DECIMAL(10,2)   NOT NULL,
-    FOREIGN KEY (OrderID) REFERENCES OrderRecord(OrderID),
-    FOREIGN KEY (ProductID) REFERENCES ProductGood(ProductID)
+    FOREIGN KEY (OrderID) REFERENCES Order_Record(OrderID),
+    FOREIGN KEY (ProductID) REFERENCES Product_Good(ProductID)
+        ON DELETE RESTRICT
+        ON UPDATE CASCADE
 );
 
-CREATE TABLE InboxMessage (
+CREATE TABLE Inbox_Message (
   MessageID         INT             AUTO_INCREMENT  PRIMARY KEY,
   RecipientID       INT             NOT NULL,
   Sender            VARCHAR(255)    NOT NULL,
