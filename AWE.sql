@@ -17,6 +17,10 @@ CREATE TABLE Account (
     AccountType     ENUM('OWNER', 'STAFF', 'CUSTOMER') NOT NULL
 );
 
+INSERT INTO Account (Email, UserName, Password, StreetAddress, AccountType)
+VALUES
+  ('AWE@owner.com', 'AWE', 'hashed_12345678', 'AWE', 'OWNER');
+
 CREATE TABLE Order_Record (
     OrderID         INT             AUTO_INCREMENT  PRIMARY KEY,
     CustomerID      INT             NOT NULL,
