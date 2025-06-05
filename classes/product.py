@@ -1,7 +1,7 @@
 import itertools
 from enum import Enum
 
-def load_brand_enum(db):
+def Brand(db):
     rows = db.query("SELECT BrandName, BrandID FROM Brand;")
     members = {}
     for row in rows:
@@ -14,10 +14,7 @@ def load_brand_enum(db):
         members[safe_name] = val
     return Enum("Brand", members)
 
-def Brand(db):
-    return load_brand_enum(db)
-
-def load_category_enum(db):
+def Category(db):
     rows = db.query("SELECT CategoryName, CategoryID FROM Category;")
     members = {}
     for row in rows:
@@ -30,11 +27,9 @@ def load_category_enum(db):
         members[safe_name] = val
     return Enum("Category", members)
 
-def Category(db):
-    return load_category_enum(db)
-
 class Product:
-    def __init__(self, name: str, description: str, price: float, quantity: int, category: load_category_enum, brand: load_brand_enum, productID: int = None):
+    def __init__(self, name: str, description: str, price: float, quantity: int, category: Category, brand: Brand, productID: int = None):
+        self.name = name
         self.id = productID
         self.description = description
         self.price = float(price)
