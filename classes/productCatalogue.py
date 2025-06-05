@@ -12,19 +12,21 @@ class ProductCatalogue:
         if not hasattr(self, "_initialized"):
             self._initialized = True
 
-    def _row_to_product(self, row: tuple):
-        (prod_id, name, description, price, stock_qty, cat_name, brand_name) = row
-        try:
-            category_enum = Category[cat_name]
-        except (KeyError, TypeError):
-            category_enum = Category.Television
+    def __row_to_product(self, row: tuple, db):
+        (product_id, product_name, product_desc, unit_price, stock_qty, cat_name, brand_name) = row
+        CategoryEnum = Category(db)
+        if cat_name in CategoryEnum.__members__:
+            category_enum = CategoryEnum[cat_name]
+        else:
+            category_enum = next(iter(CategoryEnum))
 
-        try:
-            brand_enum = Brand[brand_name]
-        except (KeyError, TypeError):
-            brand_enum = Brand.BrandA
+        BrandEnum = Brand(db)
+        if brand_name in BrandEnum.__members__:
+            brand_enum = BrandEnum[brand_name]
+        else:
+            brand_enum = next(iter(BrandEnum))
 
-        return Product(name, description, price, stock_qty, category_enum, brand_enum, prod_id)
+        return Product(product_name, product_desc, unit_price, stock_qty, category_enum, brand_enum, product_id)
     
     def removeProduct(self, productID: int, db):
         try:
@@ -36,21 +38,21 @@ class ProductCatalogue:
         result = db.query(delete_sql)
         return True
 
-    def addProduct(self, name: str, description: str, price: float, quantity: int, category: Category, brand: Brand, db):
-        name_esc = name.replace("'", "''")
-        desc_esc = description.replace("'", "''")
-        cat_name = category.name
-        brand_name = brand.name
+    def addProduct(self, productName: str, productDesc: str, unitPrice: float, quantity: int, category: Category, brand: Brand, db):
+        name_esc = productName.replace("'", "''")
+        desc_esc = productDesc.replace("'", "''")
+        cat_name = category.value
+        brand_name = brand.value
 
         insert_sql = """
             INSERT INTO productgood
-              (Name, Description, Price, StockQuantity, Category, Brand)
+              (Name, Description, UnitPrice, StockQuantity, CategoryID, BrandID)
             VALUES
               (%s, %s, %s, %s, %s, %s);
         """
-        params = (name_esc, desc_esc, price, quantity, cat_name, brand_name)
-        ok = db.query(insert_sql, params)
-        if not ok:
+        params = (name_esc, desc_esc, unitPrice, quantity, cat_name, brand_name)
+        success = db.query(insert_sql, params)
+        if not success:
             print("SQL error: could not insert new product.")
             return None
 
@@ -61,39 +63,41 @@ class ProductCatalogue:
 
         first = row[0]
         if isinstance(first, tuple):
-            new_prod_id = first[0]
+            new_product_id = first[0]
         elif isinstance(first, dict):
-            new_prod_id = list(first.values())[0]
+            new_product_id = list(first.values())[0]
         else:
             print("Unexpected format for LAST_INSERT_ID.")
             return None
 
         new_product = Product(
-            name=name,
-            description=description,
-            price=price,
+            name=productName,
+            description=productDesc,
+            price=unitPrice,
             quantity=quantity,
             category=category,
             brand=brand,
-            productID=new_prod_id
+            productID=new_product_id
         )
         return new_product
     
     def fetchAllProducts(self, db):
         select_sql = """
         SELECT 
-            ProductID,
-            Name,
-            Description,
-            Price,
-            StockQuantity,
-            Category,
-            Brand 
-        FROM productgood
+            pg.ProductID,
+            pg.Name,
+            pg.Description,
+            pg.UnitPrice,
+            pg.StockQuantity,
+            c.CategoryName,
+            b.BrandName 
+        FROM productgood pg
+        JOIN category c ON pg.CategoryID = c.CategoryID
+        JOIN brand b ON pg.BrandID = b.BrandID;
         """
         raw = db.query(select_sql)
 
-        if not isinstance(raw, list):
+        if not isinstance(raw, (list, tuple)):
             print("Warning: fetchAllProducts expected list of tuples but got", type(raw))
             return []
 
@@ -107,37 +111,38 @@ class ProductCatalogue:
                         row["ProductID"],
                         row["Name"],
                         row["Description"],
-                        row["Price"],
+                        row["UnitPrice"],
                         row["StockQuantity"],
-                        row["Category"],
-                        row["Brand"]
+                        row["CategoryName"],
+                        row["BrandName"]
                     )
                 except KeyError:
                     continue
             else:
                 continue
-            prod_obj = self._row_to_product(tup)
+            prod_obj = self.__row_to_product(tup, db)
             products.append(prod_obj)
-
         return products
     
     def fetchProductDetail(self, keyword: str, db):
         kw = keyword.strip().lower().replace("'", "''")
         select_sql = f"""
         SELECT 
-            ProductID,
-            Name,
-            Description,
-            Price,
-            StockQuantity,
-            Category,
-            Brand
-        FROM productgood
+            pg.ProductID,
+            pg.Name,
+            pg.Description,
+            pg.UnitPrice,
+            pg.StockQuantity,
+            c.CategoryName,
+            b.BrandName
+        FROM productgood pg
+        JOIN category c ON pg.CategoryID = c.CategoryID
+        JOIN brand b ON pg.BrandID = b.BrandID
         WHERE 
-        LOWER(Name)        LIKE '%{kw}%' 
-        OR LOWER(Description) LIKE '%{kw}%' 
-        OR LOWER(Category)    LIKE '%{kw}%' 
-        OR LOWER(Brand)       LIKE '%{kw}%';
+        LOWER(pg.Name)              LIKE '%{kw}%' 
+        OR LOWER(pg.Description)    LIKE '%{kw}%' 
+        OR LOWER(c.CategoryName)    LIKE '%{kw}%' 
+        OR LOWER(b.BrandName)       LIKE '%{kw}%';
         """
         raw = db.query(select_sql)
 
@@ -154,19 +159,19 @@ class ProductCatalogue:
                         row["ProductID"],
                         row["Name"],
                         row["Description"],
-                        row["Price"],
+                        row["UnitPrice"],
                         row["StockQuantity"],
-                        row["Category"],
-                        row["Brand"],
+                        row["CategoryName"],
+                        row["BrandName"],
                     )
                 except KeyError:
                     continue
             else:
                 continue
-            prod_obj = self._row_to_product(tup)
+            prod_obj = self.__row_to_product(tup, db)
             matches.append(prod_obj)
-
         return matches
+    
     def fetchProductByID(self, productID: int, db):
         try:
             pid = int(productID)
@@ -175,19 +180,20 @@ class ProductCatalogue:
 
         select_sql = """
             SELECT
-                ProductID,
-                Name,
-                Description,
-                Price,
-                StockQuantity,
-                Category,
-                Brand
-            FROM productgood
-            WHERE ProductID = %s
+                pg.ProductID,
+                pg.Name,
+                pg.Description,
+                pg.UnitPrice,
+                pg.StockQuantity,
+                c.CategoryName,
+                b.BrandName
+            FROM productgood pg
+            JOIN category c ON pg.CategoryID = c.CategoryID
+            JOIN brand b ON pg.BrandID = b.BrandID
+            WHERE pg.ProductID = %s
             LIMIT 1;
         """
         params = (pid,)
-
         raw = db.query(select_sql, params)
 
         if not isinstance(raw, list) or len(raw) == 0:
@@ -196,29 +202,31 @@ class ProductCatalogue:
         row = raw[0]
 
         if isinstance(row, tuple) and len(row) == 7:
-            return self._row_to_product(row)
+            return self.__row_to_product(row, db)
 
         if isinstance(row, dict):
             try:
                 pid_val        = row["ProductID"]
                 name           = row["Name"]
                 description    = row["Description"]
-                price          = row["Price"]
+                unit_price     = row["UnitPrice"]
                 stock_qty      = row["StockQuantity"]
-                category_str   = row["Category"]
-                brand_str      = row["Brand"]
+                category_str   = row["CategoryName"]
+                brand_str      = row["BrandName"]
             except KeyError:
                 return None
-            
+
+            CategoryEnum = Category(db)
+            BrandEnum = Brand(db)
             return Product(
                 name=name,
                 description=description,
-                price=float(price),
+                price=float(unit_price),
                 quantity=int(stock_qty),
-                category=Category[category_str],
-                brand=Brand[brand_str]
+                category=CategoryEnum[category_str] if category_str in CategoryEnum.__members__ else next(iter(CategoryEnum)),
+                brand=BrandEnum[brand_str] if brand_str in BrandEnum.__members__ else next(iter(BrandEnum)),
+                productID=pid_val
             )
-
         return None
     
     def modifyProduct(self, productID: int, field, newValue, db):
@@ -227,8 +235,24 @@ class ProductCatalogue:
         except ValueError:
             return None
 
-        update_sql = f"UPDATE productgood SET `{field}` = %s WHERE ProductID = %s;"
-        params     = (newValue, pid)
-        result = db.query(update_sql, params)
+        if field == "Category":
+            update_sql = """
+                UPDATE productgood
+                SET CategoryID = (SELECT CategoryID FROM category WHERE CategoryName = %s)
+                WHERE ProductID = %s;
+            """
+            params = (newValue.name, pid)
+        elif field == "Brand":
+            update_sql = """
+                UPDATE productgood
+                SET BrandID = (SELECT BrandID FROM brand WHERE BrandName = %s)
+                WHERE ProductID = %s;
+            """
+            params = (newValue.name, pid)
+        else:
+            col = "UnitPrice" if field == "Price" else field
+            update_sql = f"UPDATE productgood SET `{col}` = %s WHERE ProductID = %s;"
+            params     = (newValue, pid)
 
+        result = db.query(update_sql, params)
         return True

@@ -1,36 +1,58 @@
 import itertools
 from enum import Enum
 
-class Brand(Enum):
-    A = 1
-    B = 2
-    C = 3
+def load_brand_enum(db):
+    rows = db.query("SELECT BrandName, BrandID FROM Brand;")
+    members = {}
+    for row in rows:
+        if isinstance(row, dict):
+            name = row["BrandName"]
+            val = row["BrandID"]
+        else:
+            name, val = row
+        safe_name = name.replace(" ", "_")
+        members[safe_name] = val
+    return Enum("Brand", members)
 
-class Category(Enum):
-    Television = 1
-    MobilePhone = 2
-    Computer = 3
+def Brand(db):
+    return load_brand_enum(db)
 
-_id_counter = itertools.count(start=1)  # Auto-incrementing ID
+def load_category_enum(db):
+    rows = db.query("SELECT CategoryName, CategoryID FROM Category;")
+    members = {}
+    for row in rows:
+        if isinstance(row, dict):
+            name = row["CategoryName"]
+            val = row["CategoryID"]
+        else:
+            name, val = row
+        safe_name = name.replace(" ", "_")
+        members[safe_name] = val
+    return Enum("Category", members)
+
+def Category(db):
+    return load_category_enum(db)
+
+_id_counter = itertools.count(start=1)
 
 class Product:
-    def __init__(self, name: str, description: str, price: float, quantity: int, category: Category, brand: Brand, productID: int = None):
-        if productID is not None:
-            self.id = int(productID)
-        else:
-            self.id = next(_id_counter)
+    def __init__(self, name: str, description: str, price: float, quantity: int, category: load_category_enum, brand: load_brand_enum, productID: int = None):
+        self.id = productID if productID is not None else next(_id_counter)
         self.name = name
         self.description = description
         self.price = float(price)
         self.quantity = int(quantity)
-        if not isinstance(category, Category):
-            raise ValueError("category must be a Category enum member")
         self.category = category
-
-        if not isinstance(brand, Brand):
-            raise ValueError("brand must be a Brand enum member")
         self.brand = brand
 
+    @property
+    def productID(self):
+        return self.id
+    
+    @productID.setter
+    def productID(self, value):
+        self.id = value
+    
     def __str__(self):
         return (
             f"ID        : {self.id}\n"

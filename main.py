@@ -10,17 +10,21 @@ from classes.database import Database
 from classes.order import Order, OrderStatus
 from classes.payment import Payment
 from classes.cartItem import CartItem as CI
+from classes.inboxMessage import InboxMessage
+from classes.invoice import Invoice
+from datetime import datetime
 
 # Database connection
-_db = Database("awe")
-_db.connect("awe")
+_db = Database("awe_electronics")
+_db.connect("awe_electronics")
+
+Brand = Brand(_db)
+Category = Category(_db)
 
 GUEST_CART = Cart(customerID=None)
-
 CURRENT_USER: Account | None = None
 
 def clearScreen():
-    """Clear the console screen."""
     os.system('cls' if os.name == 'nt' else 'clear')
 
 def loginUI():
@@ -39,16 +43,12 @@ def loginUI():
         return False
 
     user = Account.login(identifier, password, _db)
-    if not user:
-        print("\nLogin failed. Check your credentials.")
-        input("\nPress Enter to continue…")
-        return False
-
-    CURRENT_USER = user
-    clearScreen()
-    print(f"Logged in as '{user.username}' (Privilege {user.accountPrivilege}).")
+    if user:
+        CURRENT_USER = user
+        print("\nLogin successful.")
+    else:
+        print("\nLogin failed.")
     input("\nPress Enter to continue…")
-    return True
 
 def SignupUI(logInNewUser: bool = True):
     global CURRENT_USER
@@ -149,6 +149,11 @@ def addProductToCart(productCatalogue: ProductCatalogue):
         print("Quantity must be a positive integer.")
         input("\nPress Enter to continue…")
         return
+    
+    if amount > product_obj.quantity:
+        print(f"\nCannot add {amount} '{product_obj.name}' to cart: only {product_obj.quantity} in stock.")
+        input("\nPress Enter to continue...")
+        return 
 
     product_dict = {
         "id": product_obj.id,
@@ -163,6 +168,156 @@ def addProductToCart(productCatalogue: ProductCatalogue):
 
     print(f"\nAdded {amount} × '{product_obj.name}' to your cart.")
     input("\nPress Enter to continue…")
+
+def checkoutUI(cart):
+    if CURRENT_USER is None or not hasattr(CURRENT_USER, "accountID"):
+        print("\nYou must be logged in to place an order.")
+        input("\nPress Enter to return to the menu…")
+        return
+    
+    clearScreen()
+    print("#" + "=" * 50)
+    print(f"{'CHECKOUT':^52}")
+    print("#" + "=" * 50 + "\n")
+
+    items = cart.getCartItems()
+    if not items:
+        print("Your cart is empty; nothing to checkout.\n")
+        input("Press Enter to return to the menu…")
+        return
+
+    grand_total = 0.0
+    for item in items:
+        prod       = item.getProduct()
+        name       = prod["name"]
+        unit_price = prod["price"]
+        qty        = item.getQuantity()
+        line_total = unit_price * qty
+        grand_total += line_total
+        print(f"{name} × {qty} @ ${unit_price:.2f} = ${line_total:.2f}")
+        print("-" * 40)
+
+    print(f"\nGrand Total: ${grand_total:.2f}\n")
+
+    print("#" + "=" * 50)
+    print(f"{'ENTER SHIPPING DETAILS':^52}")
+    print("#" + "=" * 50 + "\n")
+    full_name    = input("Full Name         : ").strip()
+    phone_number = input("Phone Number      : ").strip()
+    address      = input("Shipping Address  : ").strip()
+
+    if not full_name or not phone_number or not address:
+        print("\nShipping details cannot be blank. Aborting checkout.")
+        input("\nPress Enter to return to the menu…")
+        return
+
+    print("\nShipping info recorded successfully.\n")
+
+    choice = input("[1] Pay and complete checkout   [0] Cancel\n\nEnter choice: ").strip()
+    if choice != "1":
+        print("Checkout cancelled.")
+        input("\nPress Enter to return to the menu…")
+        return
+
+    clearScreen()
+    print("#" + "=" * 50)
+    print(f"{'ENTER PAYMENT DETAILS':^52}")
+    print("#" + "=" * 50 + "\n")
+    cardholder_name = input("Cardholder Name   : ").strip()
+    card_number     = input("Card Number       : ").strip()
+    expiry          = input("Expiry (MM/YY)    : ").strip()
+    cvv             = input("CVV               : ").strip()
+
+    try:
+        expiry_month, expiry_year = map(int, expiry.split("/"))
+        cvv_int = int(cvv)
+    except ValueError:
+        print("\nInvalid expiry or CVV format. Aborting payment.")
+        input("\nPress Enter to return to the menu…")
+        return
+
+    payment = Payment()
+    transaction_id = payment.requestPaymentFromVendor(
+        card_number,
+        expiry_month,
+        expiry_year,
+        cvv_int
+    )
+    if not payment.validateTransaction(transaction_id):
+        print("\nPayment failed. Transaction invalid.")
+        input("\nPress Enter to return to the menu…")
+        return
+
+    order_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    new_order = cart.place_order(
+        customerID = CURRENT_USER.accountID,     
+        items = cart.getCartItems(),        
+        orderStatus = "PENDING",                  
+        customerName = full_name,                  
+        phoneNumber = phone_number,               
+        shippingAddress = address,                    
+        orderDate = order_date,                 
+        totalPrice = grand_total,                
+        db = _db                         
+    )
+
+    items = cart.getCartItems()
+    for item in items:
+        prod = item.getProduct()        # prod is a dict with keys "id", "name", "price"
+        prod_id = prod["id"]
+        qty_ordered = item.getQuantity()
+ 
+        update_sql = """
+            UPDATE productgood
+               SET StockQuantity = StockQuantity - %s
+             WHERE ProductID = %s;
+        """
+        _db.query(update_sql, (qty_ordered, prod_id))
+
+    staff_message_content = f"Order {new_order.orderID} placed with status {new_order.orderStatus.value}."
+
+    sql_staff_ids = """
+        SELECT AccountID, UserName
+          FROM account
+        WHERE AccountType = "STAFF";
+    """
+    staff_rows = _db.query(sql_staff_ids)
+    if isinstance(staff_rows, list):
+        for row in staff_rows:
+
+            if isinstance(row, dict):
+                staff_id   = row["AccountID"]
+                staff_name = row["UserName"]
+            else:
+                staff_id, staff_name = row
+
+            InboxMessage.create(
+                recipientID=staff_id,
+                sender=CURRENT_USER.username,
+                content=staff_message_content,
+                db=_db
+            )
+
+    customer_notice = f"Your order {new_order.orderID} has been placed (status: {new_order.orderStatus.value})."
+    InboxMessage.create(
+        recipientID=CURRENT_USER.accountID,
+        sender="SYSTEM",
+        content=customer_notice,
+        db=_db
+    )
+
+    invoice = Invoice.create_invoice(_db, new_order.orderID, CURRENT_USER.accountID, grand_total, "PAID")
+    receipt_str = str(invoice)
+    InboxMessage.create(
+        recipientID=CURRENT_USER.accountID,
+        sender="SYSTEM",
+        content=receipt_str,
+        db=_db
+    )
+
+    cart.clear_cart()
+    return
 
 def viewCart():
     clearScreen()
@@ -260,78 +415,7 @@ def viewCart():
                 input("\nPress Enter to continue…")
                 return
 
-            clearScreen()
-            print("#" + "=" * 50)
-            print("                 CHECKOUT                          ")
-            print("#" + "=" * 50 + "\n")
-
-            items = cart.getCartItems()
-            if not items:
-                print("Your cart is empty; nothing to checkout.\n")
-                input("Press Enter to return to the menu…")
-                return
-
-            grand_total = 0.0
-            for item in items:
-                prod = item.getProduct()
-                name = prod["name"]
-                unit_price = prod["price"]
-                qty = item.getQuantity()
-                line_total = unit_price * qty
-                grand_total += line_total
-                print(f"{name} × {qty} @ ${unit_price:.2f} = ${line_total:.2f}")
-            print(f"\nGrand Total: ${grand_total:.2f}\n")
-
-            proceed = input("[1] Pay and complete checkout   [0] Cancel\n\nEnter choice: ").strip()
-            if proceed != "1":
-                print("Checkout cancelled.")
-                input("\nPress Enter to return to the menu…")
-                return
-
-            print("\n#" + "=" * 50)
-            print(f"{'ENTER PAYMENT DETAILS':^52}")
-            print("#" + "=" * 50 + "\n")
-
-            cardholder_name = input("Cardholder Name : ").strip()
-            card_number     = input("Card Number     : ").strip()
-            expiry          = input("Expiry (MM/YY)  : ").strip()
-            cvv             = input("CVV             : ").strip()
-
-            try:
-                exp_month, exp_year = map(int, expiry.split("/"))
-                cvv_int = int(cvv)
-            except ValueError:
-                print("Invalid expiry or CVV format. Aborting payment.")
-                input("\nPress Enter to return to the menu…")
-                return
-
-            payment = Payment()
-            transaction_id = payment.requestPaymentFromVendor(card_number, exp_month, exp_year, cvv_int)
-            if not payment.validateTransaction(transaction_id):
-                print("Payment failed. Transaction invalid.")
-                input("\nPress Enter to return to the menu…")
-                return
-
-            cart_items_for_receipt = cart.getCartItems()
-            cart._items.clear()
-
-            items_for_receipt = []
-            for item in cart_items_for_receipt:
-                items_for_receipt.append(
-                    CI(item.getProduct(), item.getQuantity())
-                )
-
-            order_obj = Order(
-                customerId=CURRENT_USER.accountID,
-                items=items_for_receipt,
-                orderStatus=OrderStatus.PAID,
-                orderID=None
-            )
-
-            receipt_text = payment.generateReceipt(order_obj)
-            print("\n" + receipt_text)
-            input("\nPress Enter to return to the menu…")
-            return
+            checkoutUI(cart)
 
         elif choice == "0":
             return
@@ -345,12 +429,38 @@ def viewCart():
             continue
 
 def viewOrderHistory():
-    clearScreen()
-    print("# ==================================================")
-    print("                ORDER HISTORY                      ")
-    print("# ==================================================\n")
+    if CURRENT_USER.accountPrivilege == 3:
+        clearScreen()
+        print("# ==================================================")
+        print("                     MY ORDER                       ")
+        print("# ==================================================\n")
+        orders = Order.fetch_by_customer(CURRENT_USER.accountID, _db)
 
-    input("Press Enter to return to the menu…")
+        if not orders:
+            print("\nYou have not placed any orders yet.\n")
+            input("Press Enter to return to menu…")
+            return
+
+        for order in orders:
+            print(order)
+            print("-" * 40)
+        input("\nPress Enter to return to menu…")
+    else: 
+        clearScreen()
+        print("# ==================================================")
+        print("                 ALL STORE ORDER                    ")
+        print("# ==================================================\n")
+
+        orders = Order.fetch_all(_db)
+        if not orders:
+            print("\nNo orders in the store yet.\n")
+            input("Press Enter to return to menu…")
+            return
+
+        for order in orders:
+            print(order)         
+            print("-" * 40)
+        input("\nPress Enter to return to menu…")
 
 def addRemoveProduct(productCatalogue: ProductCatalogue):
     clearScreen()
@@ -385,10 +495,10 @@ def addRemoveProduct(productCatalogue: ProductCatalogue):
             return
 
         print("\nChoose Category:")
-        for c in Category:
+        for c in sorted(Category, key=lambda x: x.value):
             print(f"[{c.value}] {c.name}")
         try:
-            cval = int(input("Enter number (1‐3): ").strip())
+            cval = int(input("Enter number (1 ‐ 3): ").strip())
             category = Category(cval)
         except (ValueError, KeyError):
             print("Invalid category. Aborting.")
@@ -396,10 +506,10 @@ def addRemoveProduct(productCatalogue: ProductCatalogue):
             return
 
         print("\nChoose Brand:")
-        for b in Brand:
+        for b in sorted(Brand, key=lambda x: x.value):
             print(f"[{b.value}] {b.name}")
         try:
-            bval = int(input("Enter number (1‐3): ").strip())
+            bval = int(input("Enter number (1 ‐ 15): ").strip())
             brand = Brand(bval)
         except (ValueError, KeyError):
             print("Invalid brand. Aborting.")
@@ -523,6 +633,81 @@ def modifyProduct(productCatalogue: ProductCatalogue):
             print(f"Failed to update {field}.")
     input("Press Enter to return to the Main Menu…")
 
+def staffViewInbox():
+    clearScreen()
+    print("#" + "=" * 50)
+    print("                  YOUR INBOX                        ")
+    print("#" + "=" * 50 + "\n")
+
+    msgs = InboxMessage.get_for_user(CURRENT_USER.accountID, _db)
+    if not msgs:
+        print("Inbox is empty.")
+        return
+
+    for msg in msgs:
+        if not msg.isRead:
+            text = msg.content.strip()
+            parts = text.split()
+            try:
+                order_id_str = parts[1]                
+                raw_status   = parts[5].rstrip(".").upper() 
+                order_id     = int(order_id_str)
+            except Exception:
+                print(f"Could not parse order info from message: '{text}'")
+                msg.mark_as_read(_db)
+                continue
+
+            order_obj = Order.fetch_by_id(order_id, _db)
+            if order_obj is None:
+                print(f"Order #{order_id} not found in DB.")
+            else:
+                if raw_status == "PAID":
+                    if order_obj.orderStatus != OrderStatus.SHIPPED:
+                        order_obj.update_order_status(OrderStatus.SHIPPED, _db)
+                elif raw_status == "CANCELLED":
+                    select_items_sql = """
+                    SELECT ProductID, Quantity
+                     FROM OrderItem
+                     WHERE OrderID = %s;
+                    """
+                    row_items = _db.query(select_items_sql, (order_id,))
+                    if isinstance(row_items, list):
+                        for row in row_items:
+                            if isinstance(row, dict):
+                                pid = row["ProductID"]
+                                qty_to_restore = row["Quantity"]
+                            else:
+                                pid, qty_to_restore = row
+                            restore_sql = """
+                            UPDATE Product
+                             SET StockQuantity = StockQuantity + %s
+                             WHERE ProductID = %s;
+                            """
+                            _db.query(restore_sql, (qty_to_restore, pid))
+                    if order_obj.orderStatus != OrderStatus.CANCELLED:
+                        order_obj.update_order_status(OrderStatus.CANCELLED, _db)
+
+            msg.mark_as_read(_db)
+        msg.showInboxMessage()
+
+def customerViewInbox():
+    clearScreen()
+    print("#" + "=" * 50)
+    print("                  YOUR INBOX                        ")
+    print("#" + "=" * 50 + "\n")
+
+    msgs = InboxMessage.get_for_user(CURRENT_USER.accountID, _db)
+    if not msgs:
+        print("Inbox is empty.")
+        return
+
+    for msg in msgs:
+        if not msg.isRead:
+            msg.mark_as_read(_db)
+        msg.showInboxMessage()
+    
+    input("\nPress Enter to return to menu…")
+
 def manageStaff():
     global CURRENT_USER
 
@@ -623,6 +808,7 @@ def customerMenu():
     print("[2] Search Product by Name or Category")
     print("[3] View Cart")
     print("[4] View Order History")
+    print("[5] Show Inbox Message")
     print("[0] Logout\n")
 
 def staffMenu():
@@ -633,6 +819,8 @@ def staffMenu():
     print("[2] Modify Product Catalogue")
     print("[3] View Product Catalogue")
     print("[4] Search Product by Name or Category")
+    print("[5] View All Store Orders")
+    print("[6] Show Inbox Message")
     print("[0] Logout\n")
 
 def ownerMenu():
@@ -645,6 +833,7 @@ def ownerMenu():
     print("[4] Manage Staff")
     print("[5] View Product Catalogue")
     print("[6] Search Product by Name or Category")
+    print("[7] View All Store Orders")
     print("[0] Logout\n")
 
 def main():
@@ -710,6 +899,8 @@ def main():
                 viewCart()
             elif choice == "4":
                 viewOrderHistory()
+            elif choice == "5":
+                customerViewInbox()
             elif choice == "0":
                 CURRENT_USER = None
             else:
@@ -726,6 +917,10 @@ def main():
                 browseCatalogue(productCatalogue)
             elif choice == 4:
                 searchProduct(productCatalogue)
+            elif choice == 5:
+                viewOrderHistory()
+            elif choice == 6:
+                staffViewInbox(_db)
             elif choice == 0:
                 CURRENT_USER = None
             else:
@@ -746,6 +941,8 @@ def main():
                 browseCatalogue(productCatalogue)
             elif choice == 6:
                 searchProduct(productCatalogue)
+            elif choice == 7:
+                viewOrderHistory()
             elif choice == 0:
                 CURRENT_USER = None
             else:

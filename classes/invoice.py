@@ -1,57 +1,75 @@
-import itertools
-from receipt import Receipt
-
-
 class Invoice:
-    _id_counter = itertools.count(start=1)
+    def __init__(self, invoiceID: int, orderID: int, customerID: int, amountDue: float, status: str):
+        self.invoiceID = invoiceID
+        self.orderID = orderID
+        self.customerID = customerID
+        self.amountDue = amountDue
+        self.status = status
 
-    def __init__(self, items):
-        self.invoiceID = next(Invoice._id_counter)
-        self.isPaid = False
-        self.items = items  # List of tuples: (product_name, quantity, price)
+    @classmethod
+    def create_invoice(cls, db, orderID: int, customerID: int, amountDue: float, status: str):
+        insert_sql = """
+            INSERT INTO invoice
+              (OrderID, CustomerID, AmountDue, InvoiceStatus)
+            VALUES
+              (%s, %s, %s, %s);
+        """
+        params = (orderID, customerID, amountDue, status)
+        db.query(insert_sql, params)
 
-    def payInvoice(self):
-        if not self.isPaid:
-            self.isPaid = True
-            return True
-        return False
+        last_id_sql = "SELECT LAST_INSERT_ID();"
+        raw = db.query(last_id_sql)
+        if not isinstance(raw, list) or len(raw) == 0:
+            raise Exception("Could not retrieve last insert ID for Invoice.")
+
+        row0 = raw[0]
+        if isinstance(row0, tuple):
+            inv_id = row0[0]
+        elif isinstance(row0, dict):
+            inv_id = list(row0.values())[0]
+        else:
+            raise Exception("Unexpected return type for LAST_INSERT_ID.")
+
+        return cls(inv_id, orderID, customerID, amountDue, status)
+
+    @classmethod
+    def fetch_by_order(cls, db, orderID: int):
+        select_sql = """
+            SELECT
+              InvoiceID,
+              CustomerID,
+              AmountDue,
+              InvoiceStatus
+            FROM Invoice
+            WHERE OrderID = %s;
+        """
+        rows = db.query(select_sql, (orderID,))
+        if not rows:
+            return None
+
+        row = rows[0]
+        return cls(
+            row["InvoiceID"],
+            orderID,
+            row["CustomerID"],
+            float(row["AmountDue"]),
+            row["InvoiceStatus"],
+        )
+
+    def update_status_db(self, db, new_status: str):
+        update_sql = """
+            UPDATE Invoice
+            SET InvoiceStatus = %s
+            WHERE InvoiceID = %s;
+        """
+        db.query(update_sql, (new_status, self.invoiceID))
+        self.status = new_status
 
     def __str__(self):
-        output = "\n# ==================================================\n"
-        output += "                INVOICE\n"
-        output += "# ==================================================\n"
-        total = 0
-        for name, qty, price in self.items:
-            line_total = qty * price
-            output += f"{name} x{qty} — ${line_total:.2f}\n"
-            total += line_total
-        output += f"Total: ${total:.2f}\n"
-        return output
-
-if __name__ == "__main__":
-    cart_items = [
-        ("Product_1", 1, 320.00),
-        ("Product_4", 2, 180.00)
-    ]
-
-    invoice = Invoice(cart_items)
-
-    # 1. Print the invoice
-    print(invoice)
-
-    # 2. Ask user to process the order
-    choice = input("\n[1] Place the order\n[0] to Cancel\nYour choice: ")
-
-    if choice == "1":
-        if invoice.payInvoice():
-            print("Order placed successfully.")
-            
-            # 3. Generate and print receipt
-            receipt = Receipt(invoice)
-            print(receipt)
-        else:
-            print("Invoice was already paid.")
-    elif choice == "0":
-        print("Order cancelled.")
-    else:
-        print("Invalid input. Order not processed.")
+        return (
+            f"Invoice ID   : {self.invoiceID}\n"
+            f"Order ID     : {self.orderID}\n"
+            f"Customer ID  : {self.customerID}\n"
+            f"Amount Due   : ${self.amountDue:.2f}\n"
+            f"Status       : {self.status}\n"
+        )

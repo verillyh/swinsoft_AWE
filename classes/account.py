@@ -39,7 +39,7 @@ class Account(InboxInterface):
 
     @accountID.setter
     def accountID(self, value: int):
-        self._accountID = next(_id_counter)
+        self._accountID = value
 
     @property
     def email(self):
@@ -171,22 +171,24 @@ class Account(InboxInterface):
         db_street       = row["StreetAddress"]
         db_privilege    = row["AccountType"]
         db_email        = row["Email"]
-        if db_privilege == "Owner":
+        if db_privilege == "OWNER":
             user = ownerAccount(
                 db_privilege,
                 db_email,
                 db_street,
                 db_username,
                 db_passwordHash,
+                db_accountID,
                 skipEmailValidation=True
             )
-        elif db_privilege == "Staff":
+        elif db_privilege == "STAFF":
             user = staffAccount(
                 db_privilege,
                 db_email,
                 db_street,
                 db_username,
                 db_passwordHash,
+                db_accountID,
                 skipEmailValidation=True
             )
         else:
@@ -196,12 +198,13 @@ class Account(InboxInterface):
                 db_street,
                 db_username,
                 db_passwordHash,
+                db_accountID,
                 skipEmailValidation=True
             )
 
         return user
         
-    def modifyAccountDetail(self, field: str, newValue: str):
+    def modifyAccountDetail(self, field: str, newValue: str, db):
         field = field.strip()
 
         if field not in ["email", "username", "streetAddress", "password"]:
@@ -235,12 +238,12 @@ class Account(InboxInterface):
             update_field = f"passwordHash = '{hashedPassword}'"
             self.__passwordHash = hashedPassword
 
-        # update_query = (
-        #     f"UPDATE accounts "
-        #     f"SET {update_field} "
-        #     f"WHERE accountID = {self._accountID};"
-        # )
-        # result = _db.query(update_query)
+        update_query = (
+            f"UPDATE account"
+            f"SET {update_field} "
+            f"WHERE AccountID = {self._accountID};"
+        )
+        result = db.query(update_query)
 
         print("Account detail modified.")
         return True
@@ -251,33 +254,19 @@ class Account(InboxInterface):
         print(f"Email: {self.email}")
         print(f"Username: {self.username}")
         print(f"Street: {self.streetAddress}")
+
+    def receiveInboxMessage(self, msg: InboxMessage):
+        if not isinstance(msg, InboxMessage):
+            raise ValueError("Must pass an InboxMessage instance")
+        self.inbox.append(msg)
     
     def showInboxMessage(self):
         if not self.inbox:
             print("Inbox is empty.")
-        else:
-            for msg in self.inbox:
-                print(f"FROM: {msg.sender} → {msg.content}")  
+            return
 
-    def listOrders(self):
-        # if self.accountPrivilege == 3:
-        #     query = (
-        #         "SELECT orderID, customerID, status, items "
-        #         "FROM orders "
-        #         f"WHERE customerID = {self._accountID};"
-        #     )
-        # elif self.accountPrivilege == 1 or self.accountPriviledge == 2:
-        #     query = "SELECT orderID, customerID, status, items FROM orders;"
-        # else:
-        #     print("You do not have permission to list order.")
-        #     return False
-        # result = _db.query(query)
-
-        # if "Result of query" not in result:
-        #     print("No orders found or error in query.")
-        #     return False
-        # print(f"\n--- Output for Orders ---\n{result}\n")
-        return True
+        for msg in self.inbox:
+            msg.showInboxMessage() 
     
 class ownerAccount(Account):
     def __init__(self, accountPrivilege: int, email, streetAddress, username, password, accountID = None, skipEmailValidation: bool = False):
@@ -311,7 +300,7 @@ class ownerAccount(Account):
         except ValueError:
             return False
 
-        delete_sql = f"DELETE FROM account WHERE AccountID = {pid} AND AccountType = 'Staff';"
+        delete_sql = f"DELETE FROM account WHERE AccountID = {pid} AND AccountType = 'STAFF';"
         result = db.query(delete_sql)
         return True
     
@@ -323,7 +312,7 @@ class ownerAccount(Account):
             StreetAddress,
             Email
         FROM account 
-        WHERE AccountType = 'Staff'
+        WHERE AccountType = 'STAFF'
         """
         raw = db.query(select_sql)
 
@@ -359,6 +348,21 @@ class staffAccount(Account):
     @classmethod
     def signup(cls, accountPrivilege: int, email: str, streetAddress: str, username: str, password: str, db):
         return super().signup(2, email, streetAddress, username, password, db)
+
+    @classmethod
+    def fetch_all_staff(cls, db):  # CHANGED
+        rows = db.query("SELECT AccountID, Email, StreetAddress, UserName, Password FROM account WHERE AccountType = 'STAFF';")
+        staff_list = []
+        for row in rows:
+            staff_list.append(cls(
+                row["Email"],
+                row["StreetAddress"],
+                row["UserName"],
+                row["Password"],
+                row["AccountID"],
+                skipEmailValidation=True
+            ))
+        return staff_list
 
 class customerAccount(Account):
     def __init__(self, accountPrivilege: int, email, streetAddress, username, password, accountID = None, skipEmailValidation: bool = False):

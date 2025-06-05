@@ -14,11 +14,11 @@ class Payment:
     def generateReceipt(self, order):
         print("Generating receipt...")
         receipt_id = random.randint(1000, 9999)
-        order_id = order.getOrderId()
+        order_id = order.orderID
         total = order.getTotalCost()
-        items = [(item.getProduct()['name'], item.getQuantity()) for item in order.getItems()]
+        items = [(item.getProduct()['name'], item.getQuantity(), item.getProduct()['price']) for item in order.getItems()]
     
-        item_lines = "\n".join([f"  - {name} x{qty}" for name, qty in items])
+        item_lines = "\n".join([f"  - {name} x{qty} @ ${price:.2f}" for name, qty, price in items])
     
         return (
             f"# =================================================== \n {'RECEIPT' .center(50)} \n# =================================================== \n"
