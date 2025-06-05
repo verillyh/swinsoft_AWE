@@ -28,7 +28,7 @@ class ProductCatalogue:
 
         return Product(product_name, product_desc, unit_price, stock_qty, category_enum, brand_enum, product_id)
     
-    def removeProduct(self, productID: int, db):
+    def remove_product(self, productID: int, db):
         try:
             pid = int(productID)
         except ValueError:
@@ -38,7 +38,7 @@ class ProductCatalogue:
         result = db.query(delete_sql)
         return True
 
-    def addProduct(self, productName: str, productDesc: str, unitPrice: float, quantity: int, category: Category, brand: Brand, db):
+    def add_product(self, productName: str, productDesc: str, unitPrice: float, quantity: int, category: Category, brand: Brand, db):
         name_esc = productName.replace("'", "''")
         desc_esc = productDesc.replace("'", "''")
         cat_name = category.value
@@ -81,7 +81,7 @@ class ProductCatalogue:
         )
         return new_product
     
-    def fetchAllProducts(self, db):
+    def fetch_all_products(self, db):
         select_sql = """
         SELECT 
             pg.ProductID,
@@ -124,7 +124,7 @@ class ProductCatalogue:
             products.append(prod_obj)
         return products
     
-    def fetchProductDetail(self, keyword: str, db):
+    def fetch_product_detail(self, keyword: str, db):
         kw = keyword.strip().lower().replace("'", "''")
         select_sql = f"""
         SELECT 
@@ -172,7 +172,7 @@ class ProductCatalogue:
             matches.append(prod_obj)
         return matches
     
-    def fetchProductByID(self, productID: int, db):
+    def fetch_product_by_id(self, productID: int, db):
         try:
             pid = int(productID)
         except (ValueError, TypeError):
@@ -229,7 +229,7 @@ class ProductCatalogue:
             )
         return None
     
-    def modifyProduct(self, productID: int, field, newValue, db):
+    def modify_product(self, productID: int, field, newValue, db):
         try:
             pid = int(productID)
         except ValueError:

@@ -2,16 +2,17 @@ import random
 import string
 
 class Payment:
-    def requestPaymentFromVendor(self, cardNumber: str, monthExpiry: int, yearExpiry: int, cvv: int) -> str:
+    def request_payment_from_vendor(self, cardNumber: str, monthExpiry: int, yearExpiry: int, cvv: int) -> str:
         print("Requesting payment from vendor...")
         transaction_id = ''.join(random.choices(string.ascii_uppercase + string.digits, k=10))
         print(f"Transaction ID: {transaction_id}")
         return transaction_id    
-    def validateTransaction(self, transaction_id: str) -> bool:
+    
+    def validate_transaction(self, transaction_id: str) -> bool:
         print(f"Validating transaction {transaction_id}...")
         return True
 
-    def generateReceipt(self, order):
+    def generate_receipt(self, order):
         print("Generating receipt...")
         receipt_id = random.randint(1000, 9999)
         order_id = order.orderID

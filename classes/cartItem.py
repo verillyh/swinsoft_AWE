@@ -4,20 +4,20 @@ class CartItem:
         self._quantity = quantity
         self.__cartItemID: int | None = None
 
-    def setCartItemID(self, new_id: int):
+    def set_cart_item_id(self, new_id: int):
         self.__cartItemID = new_id
 
-    def getCartItemID(self) -> int:
+    def get_cart_item_id(self):
         return self.__cartItemID
 
-    def getProduct(self) -> dict:
+    def get_product(self):
         return self._product
 
-    def getQuantity(self) -> int:
+    def get_quantity(self):
         return self._quantity
 
-    def changeQuantity(self, new_qty: int):
+    def change_quantity(self, new_qty: int):
         self._quantity = new_qty
 
-    def getTotalPrice(self) -> float:
+    def get_total_price(self):
         return self._product["price"] * self._quantity

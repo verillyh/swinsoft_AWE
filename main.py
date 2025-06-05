@@ -4,7 +4,7 @@ import re
 
 from classes.account import Account, ownerAccount, staffAccount, customerAccount
 from classes.productCatalogue import ProductCatalogue
-from classes.product import Product, Brand, Category
+from classes.product import Brand, Category
 from classes.cart import Cart
 from classes.database import Database
 from classes.order import Order, OrderStatus
@@ -24,12 +24,12 @@ Category = Category(_db)
 GUEST_CART = Cart(customerID=None)
 CURRENT_USER: Account | None = None
 
-def clearScreen():
+def clear_screen():
     os.system('cls' if os.name == 'nt' else 'clear')
 
-def loginUI():
+def login_ui():
     global CURRENT_USER
-    clearScreen()
+    clear_screen()
     print("# ==================================================")
     print("                    LOGIN                          ")
     print("# ==================================================\n")
@@ -50,9 +50,9 @@ def loginUI():
         print("\nLogin failed.")
     input("\nPress Enter to continue…")
 
-def SignupUI(logInNewUser: bool = True):
+def signup_ui(logInNewUser: bool = True):
     global CURRENT_USER
-    clearScreen()
+    clear_screen()
     print("# ==================================================")
     print("                CREATE NEW ACCOUNT                 ")
     print("# ==================================================\n")
@@ -75,16 +75,16 @@ def SignupUI(logInNewUser: bool = True):
 
     if logInNewUser:
         CURRENT_USER = new_user
-        clearScreen()
+        clear_screen()
         print(f"Account created! Logged in as '{new_user.username}'.")
     else:
-        clearScreen()
+        clear_screen()
         print(f"Staff account '{new_user.username}' was successfully created.")
     input("\nPress Enter to continue…")
     return True
 
-def productUI(productCatalogue: ProductCatalogue):
-    all_products = productCatalogue.fetchAllProducts(_db)
+def product_ui(productCatalogue: ProductCatalogue):
+    all_products = productCatalogue.fetch_all_products(_db)
     if len(all_products) == 0:
         print("No products available.\n")
     else:
@@ -92,23 +92,23 @@ def productUI(productCatalogue: ProductCatalogue):
             print(prod)        
             print("-" * 40)
 
-def browseCatalogue(productCatalogue: ProductCatalogue):
-    clearScreen()
+def browse_catalogue(productCatalogue: ProductCatalogue):
+    clear_screen()
     print("# ==================================================")
     print("                PRODUCT CATALOGUE                   ")
     print("# ==================================================\n")
 
-    productUI(productCatalogue)
+    product_ui(productCatalogue)
 
     input("Press Enter to return to the menu…")
 
-def searchProduct(productCatalogue: ProductCatalogue):
-    clearScreen()
+def search_product(productCatalogue: ProductCatalogue):
+    clear_screen()
     print("# ==================================================")
     print("                SEARCH PRODUCT                      ")
     print("# ==================================================\n")
     keyword = input("Enter product name or keyword: ").strip()
-    results = productCatalogue.fetchProductDetail(keyword, _db)
+    results = productCatalogue.fetch_product_detail(keyword, _db)
 
     if not results:
         print("\nNo products match this keyword.\n")
@@ -120,13 +120,13 @@ def searchProduct(productCatalogue: ProductCatalogue):
 
     input("\nPress Enter to return to the menu…")
 
-def addProductToCart(productCatalogue: ProductCatalogue):
-    clearScreen()
+def add_product_to_cart(productCatalogue: ProductCatalogue):
+    clear_screen()
     print("# ==================================================")
     print("             ADD PRODUCT TO CART                    ")
     print("# ==================================================\n")
 
-    productUI(productCatalogue)
+    product_ui(productCatalogue)
 
     try:
         choice = int(input("\nEnter product ID to add to cart: ").strip())
@@ -135,7 +135,7 @@ def addProductToCart(productCatalogue: ProductCatalogue):
         input("\nPress Enter to continue…")
         return
 
-    product_obj = productCatalogue.fetchProductByID(choice, _db)
+    product_obj = productCatalogue.fetch_product_by_id(choice, _db)
     if not product_obj:
         print("\nNo product with this ID.")
         input("\nPress Enter to continue…")
@@ -162,25 +162,25 @@ def addProductToCart(productCatalogue: ProductCatalogue):
     }
 
     if CURRENT_USER is None:
-        GUEST_CART.addToCart(product_dict, amount)
+        GUEST_CART.add_to_cart(product_dict, amount)
     else:
-        CURRENT_USER.cart.addToCart(product_dict, amount)
+        CURRENT_USER.cart.add_to_cart(product_dict, amount)
 
     print(f"\nAdded {amount} × '{product_obj.name}' to your cart.")
     input("\nPress Enter to continue…")
 
-def checkoutUI(cart):
+def checkout_ui(cart):
     if CURRENT_USER is None or not hasattr(CURRENT_USER, "accountID"):
         print("\nYou must be logged in to place an order.")
         input("\nPress Enter to return to the menu…")
         return
     
-    clearScreen()
+    clear_screen()
     print("#" + "=" * 50)
     print(f"{'CHECKOUT':^52}")
     print("#" + "=" * 50 + "\n")
 
-    items = cart.getCartItems()
+    items = cart.get_cart_items()
     if not items:
         print("Your cart is empty; nothing to checkout.\n")
         input("Press Enter to return to the menu…")
@@ -188,10 +188,10 @@ def checkoutUI(cart):
 
     grand_total = 0.0
     for item in items:
-        prod       = item.getProduct()
+        prod       = item.get_product()
         name       = prod["name"]
         unit_price = prod["price"]
-        qty        = item.getQuantity()
+        qty        = item.get_quantity()
         line_total = unit_price * qty
         grand_total += line_total
         print(f"{name} × {qty} @ ${unit_price:.2f} = ${line_total:.2f}")
@@ -219,7 +219,7 @@ def checkoutUI(cart):
         input("\nPress Enter to return to the menu…")
         return
 
-    clearScreen()
+    clear_screen()
     print("#" + "=" * 50)
     print(f"{'ENTER PAYMENT DETAILS':^52}")
     print("#" + "=" * 50 + "\n")
@@ -237,13 +237,13 @@ def checkoutUI(cart):
         return
 
     payment = Payment()
-    transaction_id = payment.requestPaymentFromVendor(
+    transaction_id = payment.request_payment_from_vendor(
         card_number,
         expiry_month,
         expiry_year,
         cvv_int
     )
-    if not payment.validateTransaction(transaction_id):
+    if not payment.validate_transaction(transaction_id):
         print("\nPayment failed. Transaction invalid.")
         input("\nPress Enter to return to the menu…")
         return
@@ -252,7 +252,7 @@ def checkoutUI(cart):
 
     new_order = cart.place_order(
         customerID = CURRENT_USER.accountID,     
-        items = cart.getCartItems(),        
+        items = cart.get_cart_items(),        
         orderStatus = "PENDING",                  
         customerName = full_name,                  
         phoneNumber = phone_number,               
@@ -262,11 +262,11 @@ def checkoutUI(cart):
         db = _db                         
     )
 
-    items = cart.getCartItems()
+    items = cart.get_cart_items()
     for item in items:
-        prod = item.getProduct()        # prod is a dict with keys "id", "name", "price"
+        prod = item.get_product()
         prod_id = prod["id"]
-        qty_ordered = item.getQuantity()
+        qty_ordered = item.get_quantity()
  
         update_sql = """
             UPDATE productgood
@@ -319,8 +319,8 @@ def checkoutUI(cart):
     cart.clear_cart()
     return
 
-def viewCart():
-    clearScreen()
+def view_cart():
+    clear_screen()
     print("#" + "=" * 50)
     print("                  YOUR CART                        ")
     print("#" + "=" * 50 + "\n")
@@ -331,14 +331,14 @@ def viewCart():
     else:
         cart = CURRENT_USER.cart
 
-    if not cart.getCartItems():
+    if not cart.get_cart_items():
         print("Your cart is currently empty.\n")
         input("Press Enter to return to the menu…")
         return
 
     while True:
-        clearScreen()
-        items = cart.getCartItems()
+        clear_screen()
+        items = cart.get_cart_items()
 
         if not items:
             print("Your cart is now empty.\n")
@@ -347,12 +347,12 @@ def viewCart():
 
         grand_total = 0.0
         for item in items:
-            cartItemID = item.getCartItemID()      
-            prod = item.getProduct()
+            cartItemID = item.get_cart_item_id()      
+            prod = item.get_product()
             prod_id = prod["id"]                      
             name = prod["name"]
             unit_price = prod["price"]
-            qty = item.getQuantity()
+            qty = item.get_quantity()
             line_total = unit_price * qty
             grand_total += line_total
             print(f"[{cartItemID}] {name} (PID {prod_id}) – ${unit_price:.2f} × {qty} = ${line_total:.2f}")
@@ -374,7 +374,7 @@ def viewCart():
                 input("\nPress Enter to continue…")
                 continue
 
-            success = cart.removeCartItem(cid)
+            success = cart.remove_cart_item(cid)
             if success:
                 print(f"Item #{cid} removed successfully.")
             else:
@@ -395,8 +395,8 @@ def viewCart():
 
             found_item = None
             for item in items:
-                if item.getCartItemID() == cid:
-                    item.changeQuantity(new_qty)
+                if item.get_cart_item_id() == cid:
+                    item.change_quantity(new_qty)
                     found_item = item
                     break
 
@@ -411,11 +411,11 @@ def viewCart():
         elif choice == "3":
             if CURRENT_USER is None:
                 print("\nYou must log in or create an account to check out.")
-                loginSignupMenu()
+                login_signup_menu()
                 input("\nPress Enter to continue…")
                 return
 
-            checkoutUI(cart)
+            checkout_ui(cart)
 
         elif choice == "0":
             return
@@ -428,9 +428,9 @@ def viewCart():
             input("\nPress Enter to continue…")
             continue
 
-def viewOrderHistory():
+def view_order_history():
     if CURRENT_USER.accountPrivilege == 3:
-        clearScreen()
+        clear_screen()
         print("# ==================================================")
         print("                     MY ORDER                       ")
         print("# ==================================================\n")
@@ -446,7 +446,7 @@ def viewOrderHistory():
             print("-" * 40)
         input("\nPress Enter to return to menu…")
     else: 
-        clearScreen()
+        clear_screen()
         print("# ==================================================")
         print("                 ALL STORE ORDER                    ")
         print("# ==================================================\n")
@@ -462,8 +462,8 @@ def viewOrderHistory():
             print("-" * 40)
         input("\nPress Enter to return to menu…")
 
-def addRemoveProduct(productCatalogue: ProductCatalogue):
-    clearScreen()
+def add_remove_product(productCatalogue: ProductCatalogue):
+    clear_screen()
     print("# ==================================================")
     print("             ADD / REMOVE PRODUCT                   ")
     print("# ==================================================\n")
@@ -473,7 +473,7 @@ def addRemoveProduct(productCatalogue: ProductCatalogue):
     choice = input("\nEnter choice: ").strip()
 
     if choice == "1":
-        clearScreen()
+        clear_screen()
         print("# ==================================================")
         print("                ADD NEW PRODUCT                     ")
         print("# ==================================================\n")
@@ -516,7 +516,7 @@ def addRemoveProduct(productCatalogue: ProductCatalogue):
             input("Press Enter to continue…")
             return
 
-        new_prod = productCatalogue.addProduct(name, desc, price, qty, category, brand, _db)
+        new_prod = productCatalogue.add_product(name, desc, price, qty, category, brand, _db)
         if new_prod:
             print(f"\nProduct created! It has ProductID = {new_prod.id}.")
         else:
@@ -524,7 +524,7 @@ def addRemoveProduct(productCatalogue: ProductCatalogue):
         input("\nPress Enter to return to the Main Menu…")
 
     elif choice == "2":
-        clearScreen()
+        clear_screen()
         print("# ==================================================")
         print("                 REMOVE PRODUCT                     ")
         print("# ==================================================\n")
@@ -537,28 +537,28 @@ def addRemoveProduct(productCatalogue: ProductCatalogue):
             input("\nPress Enter to return to the menu…")
             return
 
-        productCatalogue.removeProduct(prod_id, _db)
+        productCatalogue.remove_product(prod_id, _db)
         print(f"\nRequested removal of ProductID {prod_id}.")
         input("\nPress Enter to return to the menu…")
     else:
         return
 
-def viewStatistics():
-    clearScreen()
+def view_statistics():
+    clear_screen()
     print("# ==================================================")
     print("             VIEW STATISTICS REPORT                 ")
     print("# ==================================================\n")
 
     input("Press Enter to return to the Main Menu…")
 
-def modifyProduct(productCatalogue: ProductCatalogue):
-    clearScreen()
+def modify_product(productCatalogue: ProductCatalogue):
+    clear_screen()
     print("# ==================================================")
     print("            MODIFY PRODUCT CATALOGUE                ")
     print("# ==================================================\n")
     prod_id = int(input("Enter Product ID to modify: "))
 
-    product = productCatalogue.fetchProductByID(prod_id, _db)
+    product = productCatalogue.fetch_product_by_id(prod_id, _db)
     if not product:
         print("No product with this ID")
     else:
@@ -626,15 +626,15 @@ def modifyProduct(productCatalogue: ProductCatalogue):
                 input("Press Enter to return to the Main Menu…")
                 return
 
-        success = productCatalogue.modifyProduct(prod_id, field, newValue, _db)
+        success = productCatalogue.modify_product(prod_id, field, newValue, _db)
         if success:
             print(f"{field} for Product #{prod_id} was updated successfully.")
         else:
             print(f"Failed to update {field}.")
     input("Press Enter to return to the Main Menu…")
 
-def staffViewInbox():
-    clearScreen()
+def staff_inbox():
+    clear_screen()
     print("#" + "=" * 50)
     print("                  YOUR INBOX                        ")
     print("#" + "=" * 50 + "\n")
@@ -688,10 +688,10 @@ def staffViewInbox():
                         order_obj.update_order_status(OrderStatus.CANCELLED, _db)
 
             msg.mark_as_read(_db)
-        msg.showInboxMessage()
+        msg.show_inbox_message()
 
-def customerViewInbox():
-    clearScreen()
+def customer_inbox():
+    clear_screen()
     print("#" + "=" * 50)
     print("                  YOUR INBOX                        ")
     print("#" + "=" * 50 + "\n")
@@ -704,14 +704,14 @@ def customerViewInbox():
     for msg in msgs:
         if not msg.isRead:
             msg.mark_as_read(_db)
-        msg.showInboxMessage()
+        msg.show_inbox_message()
     
     input("\nPress Enter to return to menu…")
 
-def manageStaff():
+def manage_staff():
     global CURRENT_USER
 
-    clearScreen()
+    clear_screen()
     print("# ============================================")
     print("               MANAGE STAFF ACCOUNTS          ")
     print("# ============================================\n")
@@ -722,7 +722,7 @@ def manageStaff():
     choice = input("\nEnter choice: ").strip()
 
     if choice == "1":
-        clearScreen()
+        clear_screen()
         print("# ============================================")
         print("                ADD STAFF                     ")
         print("# ============================================\n")
@@ -736,7 +736,7 @@ def manageStaff():
         if not isinstance(owner, ownerAccount):
             print("Error: only an Owner may create staff accounts.")
         else:
-            success = owner.createStaff(
+            success = owner.create_staff(
                 new_email,
                 new_street,
                 new_username,
@@ -751,7 +751,7 @@ def manageStaff():
         input("\nPress Enter to return to the Main Menu…")
 
     elif choice == "2":
-        clearScreen()
+        clear_screen()
         print("# ============================================")
         print("                STAFF LIST                    ")
         print("# ============================================")
@@ -764,25 +764,25 @@ def manageStaff():
             input("\nPress Enter to return to the menu…")
             return
 
-        CURRENT_USER.deleteStaff(staff_id, _db)
+        CURRENT_USER.delete_staff(staff_id, _db)
         print(f"\nRequested removal of StaffID {staff_id}.")
        
         input("\nPress Enter to return to the Main Menu…")
 
     elif choice == "3":
-        clearScreen()
+        clear_screen()
         print("# ============================================")
         print("                STAFF LIST                    ")
         print("# ============================================")
         
-        CURRENT_USER.listStaff(_db)
+        CURRENT_USER.list_staff(_db)
 
         input("Press Enter to return to the Main Menu…")
 
     else:
         return
     
-def guestMenu():
+def guest_menu():
     print("# ==================================================")
     print("             Main Menu                            ")
     print("# ==================================================\n")
@@ -792,7 +792,7 @@ def guestMenu():
     print("[4] Log In / Create Account")
     print("[0] Exit\n")
 
-def loginSignupMenu():
+def login_signup_menu():
     print("# ==================================================")
     print("                LOGIN / CREATE ACCOUNT             ")
     print("# ==================================================\n")
@@ -800,7 +800,7 @@ def loginSignupMenu():
     print("[2] Create a new account")
     print("[0] Return to Main Menu\n")
 
-def customerMenu():
+def customer_menu():
     print("# ==================================================")
     print("            Main Menu                  ")
     print("# ==================================================\n")
@@ -811,7 +811,7 @@ def customerMenu():
     print("[5] Show Inbox Message")
     print("[0] Logout\n")
 
-def staffMenu():
+def staff_menu():
     print("# ==================================================")
     print("                Main Menu                          ")
     print("# ==================================================\n")
@@ -823,7 +823,7 @@ def staffMenu():
     print("[6] Show Inbox Message")
     print("[0] Logout\n")
 
-def ownerMenu():
+def owner_menu():
     print("# ==================================================")
     print("               Main Menu                           ")
     print("# ==================================================\n")
@@ -841,108 +841,108 @@ def main():
     productCatalogue = ProductCatalogue()
 
     while True:
-        clearScreen()
+        clear_screen()
         if CURRENT_USER is None:
-            guestMenu()
+            guest_menu()
             choice = int(input("Enter choice: "))
             if choice == 1:
-                browseCatalogue(productCatalogue)
-                clearScreen()
+                browse_catalogue(productCatalogue)
+                clear_screen()
                 print("\n[1] Add product to cart")
                 print("\n[2] Return to main menu\n")
                 option = input("Enter an option: ")
                 if option == "1":
-                    addProductToCart(productCatalogue)
+                    add_product_to_cart(productCatalogue)
                 elif option == "2":
                     pass
                 else:
                     print("Invalid option")
             elif choice == 2:
-                searchProduct(productCatalogue)
+                search_product(productCatalogue)
             elif choice == 3:
-                viewCart()
+                view_cart()
             elif choice == 4:
-                clearScreen()
-                loginSignupMenu()
+                clear_screen()
+                login_signup_menu()
                 option = int(input("Enter choice: "))
                 if option == 1:
-                    _ = loginUI()
+                    _ = login_ui()
                 elif option == 2:
-                    _ = SignupUI()
+                    _ = signup_ui()
                 else:
                     pass
             elif choice == 0:
-                clearScreen()
+                clear_screen()
                 print("Goodbye.")
                 sys.exit(0)
             else:
                 continue
 
         elif CURRENT_USER.accountPrivilege == 3:
-            customerMenu()
+            customer_menu()
             choice = input("Enter choice: ").strip()
             if choice == "1":
-                browseCatalogue(productCatalogue)
-                clearScreen()
+                browse_catalogue(productCatalogue)
+                clear_screen()
                 print("\n[1] Add product to cart")
                 print("[2] Return to customer menu")
                 sub = input("Enter an option: ").strip()
                 if sub == "1":
-                    addProductToCart(productCatalogue)
+                    add_product_to_cart(productCatalogue)
                 elif sub == "2":
                     pass
                 else:
                     print("Invalid option")
             elif choice == "2":
-                searchProduct(productCatalogue)
+                search_product(productCatalogue)
             elif choice == "3":
-                viewCart()
+                view_cart()
             elif choice == "4":
-                viewOrderHistory()
+                view_order_history()
             elif choice == "5":
-                customerViewInbox()
+                customer_inbox()
             elif choice == "0":
                 CURRENT_USER = None
             else:
                 continue
 
         elif CURRENT_USER.accountPrivilege == 2:
-            staffMenu()
+            staff_menu()
             choice = int(input("Enter choice: "))
             if choice == 1:
-                addRemoveProduct(productCatalogue)
+                add_remove_product(productCatalogue)
             elif choice == 2:
-                modifyProduct(productCatalogue)
+                modify_product(productCatalogue)
             elif choice == 3:
-                browseCatalogue(productCatalogue)
+                browse_catalogue(productCatalogue)
             elif choice == 4:
-                searchProduct(productCatalogue)
+                search_product(productCatalogue)
             elif choice == 5:
-                viewOrderHistory()
+                view_order_history()
             elif choice == 6:
-                staffViewInbox(_db)
+                staff_inbox(_db)
             elif choice == 0:
                 CURRENT_USER = None
             else:
                 continue
 
         elif CURRENT_USER.accountPrivilege == 1:
-            ownerMenu()
+            owner_menu()
             choice = int(input("Enter choice: "))
             if choice == 1:
-                addRemoveProduct(productCatalogue)
+                add_remove_product(productCatalogue)
             elif choice == 2:
-                viewStatistics()
+                view_statistics()
             elif choice == 3:
-                modifyProduct(productCatalogue)
+                modify_product(productCatalogue)
             elif choice == 4:
-                manageStaff()
+                manage_staff()
             elif choice == 5:
-                browseCatalogue(productCatalogue)
+                browse_catalogue(productCatalogue)
             elif choice == 6:
-                searchProduct(productCatalogue)
+                search_product(productCatalogue)
             elif choice == 7:
-                viewOrderHistory()
+                view_order_history()
             elif choice == 0:
                 CURRENT_USER = None
             else:

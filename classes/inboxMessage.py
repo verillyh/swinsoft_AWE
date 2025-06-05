@@ -8,7 +8,7 @@ class InboxMessage(InboxInterface):
         self.content     = content
         self.isRead      = bool(isRead)
 
-    def showInboxMessage(self):
+    def show_inbox_message(self):
         flag = "" if self.isRead else "*"
         print(f"[{flag}] [MessageID: {self.messageID}] FROM: {self.sender} → {self.content}")
 

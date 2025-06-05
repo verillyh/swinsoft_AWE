@@ -1,15 +1,13 @@
-import itertools
 from classes.cartItem import CartItem
-from classes.payment import Payment
 from classes.order import Order, OrderStatus
 from classes.product import Product
 
 class Cart:
-    def __init__(self, customerID):
+    def __init__(self, customerID: int):
         self.customer_id = customerID
         self._items: list[CartItem] = []
 
-    def _reassignIDs(self):
+    def _reassign_id(self):
         for idx, item in enumerate(self._items, start=1):
             item.setCartItemID(idx)
 
@@ -17,33 +15,7 @@ class Cart:
         self._items.clear()
         self._reassignIDs()
 
-    # def _fetchCartRows(self):
-    #     select_sql = """
-    #         SELECT CartItemID, ProductID, Quantity
-    #           FROM cart_item
-    #          WHERE CustomerID = %s;
-    #     """
-    #     raw = self.db.query(select_sql, (self.customer_id,))
-    #     if not isinstance(raw, list):
-    #         return []
-    #     rows = []
-    #     for row in raw:
-    #         if isinstance(row, dict):
-    #             rows.append({
-    #                 'CartItemID': row.get('CartItemID'),
-    #                 'ProductID' : row.get('ProductID'),
-    #                 'Quantity'  : row.get('Quantity')
-    #             })
-    #         else:
-    #             cid, pid, qty = row
-    #             rows.append({
-    #                 'CartItemID': cid,
-    #                 'ProductID' : pid,
-    #                 'Quantity'  : qty
-    #             })
-    #     return rows
-
-    def addToCart(self, product: Product, quantity: int):
+    def add_to_cart(self, product: Product, quantity: int):
         pid = product["id"]
         if quantity <= 0:
             return False
@@ -51,16 +23,16 @@ class Cart:
         for item in self._items:
             if item.getProduct()["id"] == pid:
                 item.changeQuantity(item.getQuantity() + quantity)
-                self._reassignIDs()
+                self._reassign_id()
                 return True
 
         new_item = CartItem(product, quantity)
         self._items.append(new_item)
 
-        self._reassignIDs()
+        self._reassign_id()
         return True
     
-    def removeCartItem(self, cartItemID):
+    def remove_cart_item(self, cartItemID: int):
         for idx, item in enumerate(self._items):
             if item.getCartItemID() == cartItemID:
                 del self._items[idx]
@@ -68,13 +40,13 @@ class Cart:
                 return True
         return False
     
-    def selectCartItem(self, cartItemID):
+    def select_cart_item(self, cartItemID: int):
         for item in self._items:
             if item.getCartItemID() == cartItemID:
                 return item
         return None
     
-    def getCartItems(self):
+    def get_cart_items(self):
         return list(self._items)
     
     def place_order(self, customerID: int, items: list[CartItem], orderStatus: str, customerName: str, phoneNumber: str, shippingAddress: str, orderDate: str, totalPrice: float, db):
@@ -151,6 +123,6 @@ class Cart:
             return 0
         total = sum(item.getTotalPrice() for item in self._items)
         self._items.clear()
-        self._reassignIDs()
+        self._reassign_id()
         return total
     

@@ -33,12 +33,9 @@ def load_category_enum(db):
 def Category(db):
     return load_category_enum(db)
 
-_id_counter = itertools.count(start=1)
-
 class Product:
     def __init__(self, name: str, description: str, price: float, quantity: int, category: load_category_enum, brand: load_brand_enum, productID: int = None):
-        self.id = productID if productID is not None else next(_id_counter)
-        self.name = name
+        self.id = productID
         self.description = description
         self.price = float(price)
         self.quantity = int(quantity)

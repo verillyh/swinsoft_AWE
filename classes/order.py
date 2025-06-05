@@ -45,10 +45,10 @@ class Order:
     def orderID(self, value):
         self.__orderStatus = value
 
-    def getTotalCost(self):
+    def get_total_cost(self):
         return self.__totalCost
 
-    def getItems(self):
+    def get_items(self):
         return self.__items
 
     def update_status_db(self, db, new_status: OrderStatus, staff_list: list, customer_account):
