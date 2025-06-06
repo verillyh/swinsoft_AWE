@@ -8,7 +8,7 @@ class Payment:
         print(f"Transaction ID: {transaction_id}")
         return transaction_id    
     
-    def validate_transaction(self, transaction_id: str) -> bool:
+    def __validate_transaction(self, transaction_id: str) -> bool:
         print(f"Validating transaction {transaction_id}...")
         return True
 

@@ -132,36 +132,36 @@ class Account(InboxInterface):
             )
         return user
         
-    def modify_account_detail(self, field: str, newValue: str, db):
+    def modify_account_detail(self, field: str, new_value: str, db):
         field = field.strip()
         if field not in ["email", "username", "address", "password"]:
             print(f"Cannot modify '{field}', not allowed or read-only.")
             return False
         
-        newValue = newValue.strip()
+        new_value = new_value.strip()
         if field == "email":
-            if not is_valid_email(newValue):
+            if not is_valid_email(new_value):
                 print("Invalid email format.")
                 return False
-            update_field = f"Email = '{newValue}'"
-            self._email = newValue
+            update_field = f"Email = '{new_value}'"
+            self._email = new_value
 
         elif field == "username":
-            if len(newValue) == 0:
+            if len(new_value) == 0:
                 print("Username cannot be empty.")
                 return False
-            update_field = f"UserName = '{newValue}'"
-            self._username = newValue
+            update_field = f"UserName = '{new_value}'"
+            self._username = new_value
 
         elif field == "address":
-            update_field = f"StreetAddress = '{newValue}'"
-            self._address = newValue
+            update_field = f"StreetAddress = '{new_value}'"
+            self._address = new_value
 
         else:
-            if len(newValue) < 8:
+            if len(new_value) < 8:
                 print("Password must be at least 8 characters.")
                 return False
-            password_hashed = Account._hash_password(newValue)
+            password_hashed = Account._hash_password(new_value)
             update_field = f"Password = '{password_hashed}'"
             self._password_hashed = password_hashed
 

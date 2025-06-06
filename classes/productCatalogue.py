@@ -84,7 +84,7 @@ class ProductCatalogue:
         )
         return new_product
     
-    def get_all_products(self, db):
+    def browse_catalogue(self, db):
         select_sql = """
         SELECT 
             pg.ProductID,
@@ -121,7 +121,7 @@ class ProductCatalogue:
                 continue
             prod_obj = self.__row_to_product(tup, db)
             products.append(prod_obj)
-        return products
+        return print(products)
     
     def search_product(self, keyword: str, db):
         kw = keyword.strip().lower().replace("'", "''")
@@ -254,9 +254,6 @@ class ProductCatalogue:
             params     = (newValue, pid)
 
         db.query(update_sql, params)
-
-    def browse_catalogue():
-        pass
 
     def add_catalogue_filter(self, brand: Brand = None, category: Category = None):
         self._brand_filter = brand
