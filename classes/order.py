@@ -22,7 +22,7 @@ class Order:
 
         if not isinstance(orderStatus, OrderStatus):
             raise ValueError("orderStatus must be an instance of OrderStatus Enum")
-        self.__orderStatus = orderStatus
+        self.orderStatus = orderStatus
 
     @property
     def orderID(self):

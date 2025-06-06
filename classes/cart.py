@@ -10,7 +10,7 @@ class Cart:
 
     def _reassign_id(self):
         for idx, item in enumerate(self._items, start=1):
-            item.setCartItemID(idx)
+            item.set_cart_item_id(idx)
 
     def clear_cart(self):
         self._items.clear()
