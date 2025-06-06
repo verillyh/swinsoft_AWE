@@ -1,8 +1,8 @@
-import itertools
 import datetime as dt
 from enum import Enum
-from classes.cartItem import CartItem
+from classes.itemContainer import CartItem
 from classes.inboxMessage import InboxMessage
+from classes.itemContainer import OrderItem
 
 class OrderStatus(Enum):
     PENDING   = "PENDING"
@@ -10,20 +10,15 @@ class OrderStatus(Enum):
     SHIPPED   = "SHIPPED"
     CANCELLED = "CANCELLED"
 
-_id_counter = itertools.count(start=-1)
-
 class Order:
-    def __init__(self, customerId: int, items: list, orderStatus: OrderStatus = OrderStatus.PENDING, orderID = None, *, customername: str, phoneNumber: str, shippingAddress: str):
-        self.__orderID = int(orderID) if orderID is not None else next(_id_counter)
-        self.__customerID = customerId
-        self.__receiptID  = None
-        self.__invoiceID  = None
-        self.__items      = items
-        self.__datetime   = dt.datetime.now()
-        self.__customerName = customername
-        self.__phoneNumber = phoneNumber
-        self.__shippingAddress = shippingAddress
-        self.__totalCost = sum(item.getTotalPrice() for item in items)
+    def __init__(self, customer_id: int, items: list[OrderItem], orderStatus: OrderStatus = OrderStatus.PENDING, order_id = None, *, phone_number: str, delivery_address: str):
+        self.order_id = order_id
+        self.customer_id = customer_id
+        self.items = items
+        self.datetime   = dt.datetime.now()
+        self.phone_number = phone_number
+        self.delivery_address = delivery_address
+        self.total_cost = sum(item.get_total_price() for item in items)
 
         if not isinstance(orderStatus, OrderStatus):
             raise ValueError("orderStatus must be an instance of OrderStatus Enum")
@@ -31,42 +26,42 @@ class Order:
 
     @property
     def orderID(self):
-        return self.__orderID
+        return self.order_id
 
     @orderID.setter
     def orderID(self, value):
-        self.__orderID = value
+        self.order_id = value
 
     @property
     def orderStatus(self):
-        return self.__orderStatus
+        return self.orderStatus
 
     @orderStatus.setter
-    def orderID(self, value):
-        self.__orderStatus = value
+    def orderStatus(self, value):
+        self.orderStatus = value
 
     def get_total_cost(self):
-        return self.__totalCost
+        return self.totalCost
 
     def get_items(self):
-        return self.__items
+        return self.items
 
-    def update_status_db(self, db, new_status: OrderStatus, staff_list: list, customer_account):
+    def change_status(self, db, new_status: OrderStatus):
         update_sql = """
-            UPDATE orderrecord
+            UPDATE order_record
             SET OrderStatus = %s
             WHERE OrderID = %s;
         """
-        db.query(update_sql, (new_status.value, self.__orderID))
-        self.__orderStatus = new_status
+        db.query(update_sql, (new_status.value, self.order_id))
+        self.orderStatus = new_status
 
-        if new_status == OrderStatus.PAID:
-            staff_message = f"Order #{self.__orderID} has been marked PAID."
-            for staff in staff_list:
-                staff.inbox.append(InboxMessage(staff_message))
+        # if new_status == OrderStatus.PAID:
+        #     staff_message = f"Order #{self.order_id} has been marked PAID."
+        #     for staff in staff_list:
+        #         staff.inbox.append(InboxMessage(staff_message))
 
-            customer_message = f"Your Order #{self.__orderID} has been placed and paid."
-            customer_account.inbox.append(InboxMessage(customer_message))
+        #     customer_message = f"Your Order #{self.order_id} has been placed and paid."
+        #     customer_account.inbox.append(InboxMessage(customer_message))
     
     @classmethod
     def fetch_by_customer(cls, customer_id: int, db):
@@ -81,9 +76,9 @@ class Order:
             i.Quantity,
             i.UnitPrice,
             p.Name AS ProductName
-          FROM orderrecord o
-          JOIN orderitem i ON o.OrderID = i.OrderID
-          JOIN productgood p ON i.ProductID = p.ProductID
+          FROM order_record o
+          JOIN order_item i ON o.OrderID = i.OrderID
+          JOIN product_good p ON i.ProductID = p.ProductID
           WHERE o.CustomerID = %s
           ORDER BY o.OrderDate DESC, o.OrderID DESC;
         """
@@ -139,9 +134,9 @@ class Order:
             i.Quantity,
             i.UnitPrice,
             p.Name AS ProductName
-          FROM orderrecord o
-          JOIN orderitem i ON o.OrderID = i.OrderID
-          JOIN productgood p ON i.ProductID = p.ProductID
+          FROM order_record o
+          JOIN order_item i ON o.OrderID = i.OrderID
+          JOIN product_good p ON i.ProductID = p.ProductID
           ORDER BY o.OrderDate DESC, o.OrderID DESC;
         """
         rows = db.query(sql)
@@ -185,11 +180,11 @@ class Order:
     
     def __str__(self):
         lines = []
-        lines.append(f"Order ID   : {self.__orderID}")
-        lines.append(f"Date/Time  : {self.__datetime.strftime('%Y-%m-%d %H:%M:%S')}")
-        lines.append(f"CustomerID : {self.__customerID}")
-        lines.append(f"Status     : {self.__orderStatus.value}")
-        lines.append(f"Total Cost : ${self.__totalCost:.2f}")
+        lines.append(f"Order ID   : {self.order_id}")
+        lines.append(f"Date/Time  : {self.datetime.strftime('%Y-%m-%d %H:%M:%S')}")
+        lines.append(f"CustomerID : {self.customer_id}")
+        lines.append(f"Status     : {self.orderStatus.value}")
+        lines.append(f"Total Cost : ${self.totalCost:.2f}")
         lines.append("Items:")
         for ci in self.__items:
             prod = ci.getProduct()
