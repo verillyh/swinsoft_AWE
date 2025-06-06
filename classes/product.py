@@ -32,8 +32,8 @@ class Product:
         self.name = name
         self.product_id = productID
         self.description = description
-        self.price = float(price)
-        self.quantity = int(quantity)
+        self.price = price
+        self.quantity = quantity
         self.category = category
         self.brand = brand
 
@@ -49,9 +49,10 @@ class Product:
         return (
             f"ID        : {self.product_id}\n"
             f"Name      : {self.name}\n"
-            f"Brand     : {self.brand.name}\n"
-            f"Category  : {self.category.name}\n"
+            f"Brand     : {self.brand}\n"
+            f"Category  : {self.category}\n"
             f"Price     : ${self.price:.2f}\n"
             f"Stock     : {self.quantity}\n"
             f"Description: {self.description}"
+            "-------------"
         )

@@ -1,6 +1,5 @@
 import os
 import sys
-import re
 
 from classes.account import Account, OwnerAccount, StaffAccount, CustomerAccount
 from classes.productCatalogue import ProductCatalogue
@@ -8,7 +7,6 @@ from classes.product import Brand, Category
 from classes.cart import Cart
 from classes.database import Database
 from classes.order import Order, OrderStatus
-from classes.payment import Payment
 from classes.itemContainer import CartItem as CI
 from classes.inboxMessage import InboxMessage
 from classes.invoice import Invoice
@@ -151,6 +149,27 @@ def add_product_to_cart():
     print(f"\nAdded {amount} × '{product_obj.name}' to your cart.")
     input("\nPress Enter to continue…")
 
+def pay_invoice(invoice: Invoice):
+    clear_screen()
+    print("#" + "=" * 50)
+    print(f"{'ENTER PAYMENT DETAILS':^52}")
+    print("#" + "=" * 50 + "\n")
+    cardholder_name = input("Cardholder Name   : ").strip()
+    card_number     = input("Card Number       : ").strip()
+    expiry          = input("Expiry (MM/YY)    : ").strip()
+    cvv             = input("CVV               : ").strip()
+    
+    try:
+        expiry_month, expiry_year = map(int, expiry.split("/"))
+        cvv_int = int(cvv)
+    except ValueError:
+        print("\nInvalid expiry or CVV format. Aborting payment.")
+        input("\nPress Enter to return to the menu…")
+        return
+    
+    new_receipt = invoice.pay_invoice(_db, cardholder_name, card_number, expiry_month, expiry_year, cvv_int, invoice.invoice_id, invoice)
+    return new_receipt
+
 def checkout_ui(cart):
     if CURRENT_USER is None or not hasattr(CURRENT_USER, "account_id"):
         print("\nYou must be logged in to place an order.")
@@ -170,10 +189,10 @@ def checkout_ui(cart):
 
     grand_total = 0.0
     for item in items:
-        prod       = item.get_product()
+        prod       = item.product
         name       = prod.name
         unit_price = prod.price
-        qty        = item.get_quantity()
+        qty        = item.quantity
         line_total = unit_price * qty
         grand_total += line_total
         print(f"{name} × {qty} @ ${unit_price:.2f} = ${line_total:.2f}")
@@ -194,17 +213,11 @@ def checkout_ui(cart):
 
     print("\nShipping info recorded successfully.\n")
 
-    order_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-
     new_invoice, order_id = cart.place_order(
-        customerID = CURRENT_USER.account_id,     
-        items = cart.list_cart_items(),        
-        orderStatus = "PENDING",     
+        customerID = CURRENT_USER.account_id,
         customerName = CURRENT_USER.username,              
         phoneNumber = phone_number,               
-        shippingAddress = delivery_address,                    
-        orderDate = order_date,                 
-        totalPrice = grand_total,                
+        shippingAddress = delivery_address,                                    
         db = _db                         
     )
 
@@ -217,91 +230,27 @@ def checkout_ui(cart):
     elif choice == "2":
         return
     elif choice == "1":
-        clear_screen()
-        print("#" + "=" * 50)
-        print(f"{'ENTER PAYMENT DETAILS':^52}")
-        print("#" + "=" * 50 + "\n")
-        cardholder_name = input("Cardholder Name   : ").strip()
-        card_number     = input("Card Number       : ").strip()
-        expiry          = input("Expiry (MM/YY)    : ").strip()
-        cvv             = input("CVV               : ").strip()
+        new_receipt = pay_invoice(new_invoice)
+        items = cart.list_cart_items()
+        for item in items:
+            prod = item.product
+            prod_id = prod.product_id
+            qty_ordered = item.quantity
+            print(prod_id)
+            print(qty_ordered)
+            update_sql = f"""
+                UPDATE product_good
+                SET StockQuantity = StockQuantity - {qty_ordered}
+                WHERE ProductID = {prod_id};
+            """
+            _db.query(update_sql,)
+            
+        input("enter")
 
-        try:
-            expiry_month, expiry_year = map(int, expiry.split("/"))
-            cvv_int = int(cvv)
-        except ValueError:
-            print("\nInvalid expiry or CVV format. Aborting payment.")
-            input("\nPress Enter to return to the menu…")
-            return
+        print(new_receipt)
 
-        payment = Payment()
-        success = payment.request_payment_from_vendor(
-            card_number,
-            expiry_month,
-            expiry_year,
-            cvv_int
-        )
-        if not success:
-            print("\nPayment failed. Transaction invalid.")
-            input("\nPress Enter to return to the menu…")
-            return
-
-    items = cart.get_cart_items()
-    for item in items:
-        prod = item.get_product()
-        prod_id = prod["id"]
-        qty_ordered = item.get_quantity()
- 
-        update_sql = """
-            UPDATE product_good
-               SET StockQuantity = StockQuantity - %s
-             WHERE ProductID = %s;
-        """
-        _db.query(update_sql, (qty_ordered, prod_id))
-
-    staff_message_content = f"Order {new_order.orderID} placed with status {new_order.orderStatus.value}."
-
-    sql_staff_ids = """
-        SELECT AccountID, UserName
-          FROM account
-        WHERE AccountType = "STAFF";
-    """
-    staff_rows = _db.query(sql_staff_ids)
-    if isinstance(staff_rows, list):
-        for row in staff_rows:
-
-            if isinstance(row, dict):
-                staff_id   = row["AccountID"]
-                staff_name = row["UserName"]
-            else:
-                staff_id, staff_name = row
-
-            InboxMessage.create(
-                recipientID=staff_id,
-                sender=CURRENT_USER.username,
-                content=staff_message_content,
-                db=_db
-            )
-
-    customer_notice = f"Your order {new_order.orderID} has been placed (status: {new_order.orderStatus.value})."
-    InboxMessage.create(
-        recipientID=CURRENT_USER.accountID,
-        sender="SYSTEM",
-        content=customer_notice,
-        db=_db
-    )
-
-    invoice = Invoice.create_invoice(_db, new_order.orderID, CURRENT_USER.accountID, grand_total, "PAID")
-    receipt_str = str(invoice)
-    InboxMessage.create(
-        recipientID=CURRENT_USER.accountID,
-        sender="SYSTEM",
-        content=receipt_str,
-        db=_db
-    )
-
-    cart.clear_cart()
-    return
+        cart.clear_cart()
+        return
 
 def view_cart():
     clear_screen()
@@ -331,12 +280,12 @@ def view_cart():
 
         grand_total = 0.0
         for item in items:
-            cartItemID = item.get_cart_item_id()      
-            prod = item.get_product()
+            cartItemID = item.item_id   
+            prod = item.product
             prod_id = prod.product_id                      
             name = prod.name
             unit_price = prod.price
-            qty = item.get_quantity()
+            qty = item.quantity
             line_total = unit_price * qty
             grand_total += line_total
             print(f"[{cartItemID}] {name} (PID {prod_id}) – ${unit_price:.2f} × {qty} = ${line_total:.2f}")
@@ -359,7 +308,7 @@ def view_cart():
             
             found_item = None
             for item in items:
-                if item.get_cart_item_id() == cid:
+                if item.item_id == cid:
                     found_item = item
                     break
 
@@ -378,7 +327,7 @@ def view_cart():
                 cid = int(input("\nEnter the ID to update: ").strip())
                 found_item = None
                 for item in items:
-                    if item.get_cart_item_id() == cid:
+                    if item.item_id == cid:
                         found_item = item
                         break
 
@@ -453,6 +402,27 @@ def view_order_history():
             print("-" * 40)
         input("\nPress Enter to return to menu…")
 
+def view_invoice_history():
+    if CURRENT_USER.privilege == 3:
+        clear_screen()
+        print("# ==================================================")
+        print("                     MY INVOICE                       ")
+        print("# ==================================================\n")
+        invoices = CURRENT_USER.get_invoice_history(_db)
+        print(invoices)
+        input("Press Enter to return to the menu…")
+
+def view_receipt_history():
+    if CURRENT_USER.privilege == 3:
+        clear_screen()
+        print("# ==================================================")
+        print("                     MY RECEIPT                       ")
+        print("# ==================================================\n")
+        receipts = CURRENT_USER.get_receipt_history(_db)
+        for receipt in receipts:
+            print(receipt)
+        input("Press Enter to return to the menu…")
+
 def add_remove_product():
     clear_screen()
     print("# ==================================================")
@@ -509,7 +479,7 @@ def add_remove_product():
 
         new_prod = productCatalogue.add_product(name, desc, price, qty, category, brand, _db)
         if new_prod:
-            print(f"\n{new_prod.name} Added with ID = {new_prod.id}!")
+            print(f"\nAdded")
         else:
             print("\nFailed to create product. See errors above.")
         input("\nPress Enter to return to the Main Menu…")
@@ -628,80 +598,14 @@ def modify_product():
             print(f"Failed to update {field}.")
     input("Press Enter to return to the Main Menu…")
 
-def staff_inbox():
+def open_inbox():
     clear_screen()
     print("#" + "=" * 50)
     print("                  YOUR INBOX                        ")
     print("#" + "=" * 50 + "\n")
 
-    msgs = InboxMessage.get_for_user(CURRENT_USER.account_id, _db)
-    if not msgs:
-        print("Inbox is empty.")
-        input("\nPress Enter to return to menu…")
-        return
-
-    for msg in msgs:
-        if not msg.isRead:
-            text = msg.content.strip()
-            parts = text.split()
-            try:
-                order_id_str = parts[1]                
-                raw_status   = parts[5].rstrip(".").upper() 
-                order_id     = int(order_id_str)
-            except Exception:
-                print(f"Could not parse order info from message: '{text}'")
-                msg.mark_as_read(_db)
-                continue
-
-            order_obj = Order.fetch_by_id(order_id, _db)
-            if order_obj is None:
-                print(f"Order #{order_id} not found in DB.")
-            else:
-                if raw_status == "PAID":
-                    if order_obj.orderStatus != OrderStatus.SHIPPED:
-                        order_obj.update_order_status(OrderStatus.SHIPPED, _db)
-                elif raw_status == "CANCELLED":
-                    select_items_sql = """
-                    SELECT ProductID, Quantity
-                     FROM Order_Item
-                     WHERE OrderID = %s;
-                    """
-                    row_items = _db.query(select_items_sql, (order_id,))
-                    if isinstance(row_items, list):
-                        for row in row_items:
-                            if isinstance(row, dict):
-                                pid = row["ProductID"]
-                                qty_to_restore = row["Quantity"]
-                            else:
-                                pid, qty_to_restore = row
-                            restore_sql = """
-                            UPDATE Product
-                             SET StockQuantity = StockQuantity + %s
-                             WHERE ProductID = %s;
-                            """
-                            _db.query(restore_sql, (qty_to_restore, pid))
-                    if order_obj.orderStatus != OrderStatus.CANCELLED:
-                        order_obj.update_order_status(OrderStatus.CANCELLED, _db)
-
-            msg.mark_as_read(_db)
-        msg.show_inbox_message()
-
-def customer_inbox():
-    clear_screen()
-    print("#" + "=" * 50)
-    print("                  YOUR INBOX                        ")
-    print("#" + "=" * 50 + "\n")
-
-    msgs = InboxMessage.get_for_user(CURRENT_USER.account_id, _db)
-    if not msgs:
-        print("\nInbox is empty.")
-        input("\nPress Enter to return to menu…")
-        return
-
-    for msg in msgs:
-        if not msg.isRead:
-            msg.mark_as_read(_db)
-        msg.show_inbox_message()
+    msgs = CURRENT_USER.open_inbox(_db)
+    print(msgs)
     
     input("\nPress Enter to return to menu…")
 
@@ -777,8 +681,6 @@ def manage_staff():
         
         for staff_line in CURRENT_USER.list_staff(_db):
             print(staff_line)
-        else:
-            print("\nNo staff in store.")
 
         input("Press Enter to return to the Main Menu…")
 
@@ -811,7 +713,9 @@ def customer_menu():
     print("[2] Search Product by Name or Category")
     print("[3] View Cart")
     print("[4] View Order History")
-    print("[5] Show Inbox Message")
+    print("[5] View Invoice History")
+    print("[6] View Receipt History")
+    print("[7] Show Inbox Message")
     print("[0] Logout\n")
 
 def staff_menu():
@@ -904,7 +808,25 @@ def main():
             elif choice == "4":
                 view_order_history()
             elif choice == "5":
-                customer_inbox()
+                view_invoice_history()
+                clear_screen()
+                print("\n[1] Pay Invoice: ")
+                print("[2] Return")
+                sub = input("Enter an option: ").strip()
+                if sub == "1":
+                    invoice_id = int(input("\nEnter invoice id to pay: "))
+                    invoice = Invoice.get_invoice(invoice_id, _db)
+                    if not invoice:
+                        continue
+                    pay_invoice(invoice)
+                elif sub == "2":
+                    pass
+                else:
+                    print("Invalid option")
+            elif choice == "6":
+                view_receipt_history()
+            elif choice == "7":
+                open_inbox()
             elif choice == "0":
                 CURRENT_USER = None
             else:
@@ -924,7 +846,7 @@ def main():
             elif choice == 5:
                 view_order_history()
             elif choice == 6:
-                staff_inbox()
+                open_inbox()
             elif choice == 0:
                 CURRENT_USER = None
             else:

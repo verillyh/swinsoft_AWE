@@ -2,6 +2,7 @@ from classes.itemContainer import CartItem
 from classes.order import Order, OrderStatus
 from classes.product import Product
 from classes.invoice import Invoice
+import datetime as dt
 
 class Cart:
     def __init__(self, customerID: int):
@@ -10,7 +11,7 @@ class Cart:
 
     def _reassign_id(self):
         for idx, item in enumerate(self._items, start=1):
-            item.set_cart_item_id(idx)
+            item.item_id = idx
 
     def clear_cart(self):
         self._items.clear()
@@ -22,7 +23,7 @@ class Cart:
             return False
 
         for item in self._items:
-            if item.get_product()["id"] == pid:
+            if item.product.product_id == pid:
                 item.change_quantity(item.quantity + quantity)
                 self._reassign_id()
                 return True
@@ -34,19 +35,29 @@ class Cart:
     
     def remove_cart_item(self, cart_item_id: int):
         for idx, item in enumerate(self._items):
-            if item.get_cart_item_id() == cart_item_id:
+            if item.item_id == cart_item_id:
                 del self._items[idx]
                 self._reassign_id()
 
     def toggle_cart_item_selection(self, cart_item_id: int):
         for item in self._items:
             if item.item_id == cart_item_id:
-                item.is_selected = True
+                item.is_selected = not item.is_selected
     
     def list_cart_items(self):
         return self._items
     
-    def place_order(self, customerID: int, items: list[CartItem], orderStatus: str, customerName: str, phoneNumber: str, shippingAddress: str, orderDate: str, totalPrice: float, db):
+    def place_order(self, customerID: int, customerName: str, phoneNumber: str, shippingAddress: str, db):
+        total_price = 0.0
+        for item in self._items:
+            prod       = item.product
+            unit_price = prod.price
+            qty        = item.quantity
+            line_total = unit_price * qty
+            total_price += line_total
+        
+        datetime = dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        
         insert_sql = """
             INSERT INTO order_record
               (CustomerID, OrderDate, OrderStatus, TotalPrice, CustomerName, PhoneNumber, ShippingAddress)
@@ -55,9 +66,9 @@ class Cart:
         """
         params = (
             customerID,
-            orderDate,
-            orderStatus,
-            totalPrice,
+            datetime,
+            "PENDING",
+            total_price,
             customerName,
             phoneNumber,
             shippingAddress
@@ -82,8 +93,9 @@ class Cart:
         valid_pids = { row["ProductID"] if isinstance(row, dict) else row[0]
                     for row in valid_pid_rows }
 
-        for ci in items:
-            prod = ci.get_product()
+        total_price = 0
+        for ci in self._items:
+            prod = ci.product
             pid = prod.product_id
             qty = ci.quantity
             price_each = prod.price
@@ -104,17 +116,28 @@ class Cart:
                 print(f"Could not insert into OrderItem for ProductID={pid}.")
             else:
                 print(f"Successfully inserted OrderItem for ProductID={pid}.")
-
+            total_price+=price_each*qty
+        
         new_order = Order(
             customer_id=customerID,
-            items=items,
-            order_status=OrderStatus.PENDING if orderStatus == "PENDING" else OrderStatus.PAID,
+            items=self._items,
+            order_status=OrderStatus.PENDING,
             order_id=new_order_id,
             phone_number=phoneNumber,
-            delivery_address=shippingAddress
+            delivery_address=shippingAddress,
+            total_cost=total_price
         )
 
-        new_invoice = Invoice(new_order.order_id, new_order.customer_id, new_order.total_cost, new_order.orderStatus)
+        new_invoice = Invoice(customer_id=new_order.customer_id, amountDue=new_order.total_cost, order_contents=new_order, order_id=new_order_id, invoice_status="PENDING")
+        
+        insert_sql1 = """
+        INSERT INTO Invoice
+         (OrderID, CustomerID, AmountDue, InvoiceStatus)
+         VALUES
+         (%s, %s, %s, %s)
+        """
+        params = (new_order.order_id, new_order.customer_id, new_order.total_cost, "PENDING")
+        db.query(insert_sql1,params)
 
         Cart.clear_cart(self)
 

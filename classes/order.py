@@ -3,6 +3,7 @@ from enum import Enum
 from classes.itemContainer import CartItem
 from classes.inboxMessage import InboxMessage
 from classes.itemContainer import OrderItem
+from classes.product import Product
 
 class OrderStatus(Enum):
     PENDING   = "PENDING"
@@ -11,14 +12,20 @@ class OrderStatus(Enum):
     CANCELLED = "CANCELLED"
 
 class Order:
-    def __init__(self, customer_id: int, items: list[OrderItem], order_status: OrderStatus = OrderStatus.PENDING, order_id = None, *, phone_number: str, delivery_address: str):
+    def __init__(self, customer_id: int, items: list[OrderItem], order_status: OrderStatus = OrderStatus.PENDING, order_id = None, *, phone_number: str, delivery_address: str, total_cost = None):
         self.order_id = order_id
         self.customer_id = customer_id
         self.items = items
         self.datetime   = dt.datetime.now()
         self.phone_number = phone_number
         self.delivery_address = delivery_address
-        self.total_cost = sum(item.get_total_price() for item in items)
+        
+        total_costs = []
+
+        for item in items:
+            total_costs.append(item.total_price)
+
+        self.total_cost = sum(total_costs)
 
         if not isinstance(order_status, OrderStatus):
             raise ValueError("orderStatus must be an instance of OrderStatus Enum")
@@ -53,14 +60,6 @@ class Order:
             WHERE OrderID = %s;
         """
         db.query(update_sql, (new_status.value, order_id))
-
-        # if new_status == OrderStatus.PAID:
-        #     staff_message = f"Order #{self.order_id} has been marked PAID."
-        #     for staff in staff_list:
-        #         staff.inbox.append(InboxMessage(staff_message))
-
-        #     customer_message = f"Your Order #{self.order_id} has been placed and paid."
-        #     customer_account.inbox.append(InboxMessage(customer_message))
     
     @classmethod
     def fetch_by_customer(cls, customer_id: int, db):
@@ -74,7 +73,10 @@ class Order:
             i.ProductID,
             i.Quantity,
             i.UnitPrice,
-            p.Name AS ProductName
+            p.Name AS ProductName,
+            p.Description,
+            p.BrandID,
+            p.CategoryID
           FROM order_record o
           JOIN order_item i ON o.OrderID = i.OrderID
           JOIN product_good p ON i.ProductID = p.ProductID
@@ -97,11 +99,16 @@ class Order:
                     "status":     OrderStatus(row["OrderStatus"]),
                     "items":      [],
                 }
-            line_item = {
-                "id":    row["ProductID"],
-                "name":  row["ProductName"],
-                "price": row["UnitPrice"],
-            }
+            line_item = Product(
+                productID=row["ProductID"],
+                name=row["ProductName"],
+                price=row["UnitPrice"],
+                description=row["Description"],
+                quantity=row["Quantity"],
+                category=row["CategoryID"],
+                brand=row["BrandID"]
+            )
+        
             ci = CartItem(line_item, row["Quantity"])
             grouped[oid]["items"].append(ci)
 
@@ -175,6 +182,28 @@ class Order:
             result.append(order)
         return result
     
+    def total_cost(self) -> float:
+        return sum(item.quantity * item.product.price for item in self.items)
+
+    def print_items(self, indent: int = 0) -> str:
+        pad = " " * indent
+        if not self.items:
+            return pad + "(No items)"
+        header = f"{pad}ProductID | ProductName       | Qty | UnitPrice | LineTotal"
+        divider= pad + "-" * len(header)
+        lines = [header, divider]
+        for item in self.items:
+            pid        = item.product.product_id
+            pname      = item.product.name
+            qty        = item.quantity
+            unit_price = item.product.price
+            line_total = qty * unit_price
+            lines.append(
+                f"{pad}{pid:<9} | {pname:<18} | {qty:>3} | "
+                f"${unit_price:>8.2f} | ${line_total:>8.2f}"
+            )
+        return "\n".join(lines)
+    
     def __str__(self):
         lines = []
         lines.append(f"Order ID   : {self.order_id}")
@@ -184,9 +213,9 @@ class Order:
         lines.append(f"Total Cost : ${self.total_cost:.2f}")
         lines.append("Items:")
         for ci in self.items:
-            prod = ci.get_product()
+            prod = ci.product
             name = prod["name"]
-            qty = ci.get_quantity()
+            qty = ci.quantity
             price = prod["price"]
             lines.append(f"  - {name} x{qty} @ ${price:.2f} each → ${qty*price:.2f}")
         return "\n".join(lines)

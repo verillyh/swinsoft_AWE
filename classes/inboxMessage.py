@@ -17,34 +17,4 @@ class InboxMessage(InboxInterface):
             sql = "UPDATE inbox_message SET IsRead = TRUE WHERE MessageID = %s;"
             db.query(sql, (self.messageID,))
             self.isRead = True
-
-    # @classmethod
-    # def create(cls, recipientID: int, sender: str, content: str, db):
-    #     sql = """
-    #         INSERT INTO inbox_message (RecipientID, Sender, Content, IsRead)
-    #         VALUES (%s, %s, %s, FALSE);
-    #     """
-    #     db.query(sql, (recipientID, sender, content))
-
-    @classmethod
-    def get_for_user(cls, recipientID: int, db):
-        sql = """
-            SELECT MessageID, RecipientID, Sender, Content, IsRead
-              FROM inbox_message
-             WHERE RecipientID = %s
-             ORDER BY MessageID ASC;
-        """
-        rows = db.query(sql, (recipientID,))
-        messages = []
-        if isinstance(rows, list):
-            for r in rows:
-                if isinstance(r, dict):
-                    mid   = r["MessageID"]
-                    rid   = r["RecipientID"]
-                    snd   = r["Sender"]
-                    cont  = r["Content"]
-                    readf = r["IsRead"]
-                else:
-                    mid, rid, snd, cont, readf = r
-                messages.append(InboxMessage(mid, rid, snd, cont, readf))
-        return messages
+            
