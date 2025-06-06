@@ -230,6 +230,7 @@ class StaffAccount(Account):
     def signup(cls, email: str, address: str, username: str, password: str, db):
         return super().signup(2, email, address, username, password, db)
 
+    # discussion
     @classmethod
     def fetch_all_staff(cls, db):
         rows = db.query("SELECT AccountID, Email, StreetAddress, UserName, Password FROM account WHERE AccountType = 'STAFF';")
