@@ -247,8 +247,6 @@ class StaffAccount(Account):
 class CustomerAccount(Account):
     def __init__(self, privilege: int, email, address, username, password, account_id = None):
         super().__init__(3, email, address, username, password, account_id)
-        self.receipt = []
-        self.invoice = []
         self.cart = Cart(self.account_id)
 
     @classmethod
