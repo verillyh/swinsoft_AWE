@@ -1,8 +1,17 @@
 import pymysql
 from pymysql.err import MySQLError
 
+_instance = None
+
 class Database:
+    def __new__(cls, *args, **kwargs):
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
+        return cls._instance
+    
     def __init__(self, db_name: str):
+        if not hasattr(self, "_initialized"):
+            self._initialized = True
         self._db_name = db_name
         self.state = False
         self.conn = None
