@@ -11,8 +11,8 @@ class ProductCatalogue:
     def __init__(self):
         if not hasattr(self, "_initialized"):
             self._initialized = True
-            self._brand_filter = list[Brand] = []
-            self._category_filter = list[Category] = []
+        self._brand_filter = list[Brand] = []
+        self._category_filter = list[Category] = []
 
     def __row_to_product(self, row: tuple, db):
         (product_id, product_name, product_desc, unit_price, stock_qty, cat_name, brand_name) = row
