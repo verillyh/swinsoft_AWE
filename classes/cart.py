@@ -21,37 +21,33 @@ class Cart:
             return False
 
         for item in self._items:
-            if item.getProduct()["id"] == pid:
-                item.changeQuantity(item.getQuantity() + quantity)
+            if item.get_product()["id"] == pid:
+                item.change_quantity(item.get_quantity() + quantity)
                 self._reassign_id()
                 return True
 
         new_item = CartItem(product, quantity)
         self._items.append(new_item)
-
         self._reassign_id()
         return True
     
-    def remove_cart_item(self, cartItemID: int):
+    def remove_cart_item(self, cart_item_id: int):
         for idx, item in enumerate(self._items):
-            if item.getCartItemID() == cartItemID:
+            if item.get_cart_item_id() == cart_item_id:
                 del self._items[idx]
                 self._reassignIDs()
-                return True
-        return False
     
-    def select_cart_item(self, cartItemID: int):
+    def toggle_cart_item_selection(self, cart_item_id: int):
         for item in self._items:
-            if item.getCartItemID() == cartItemID:
-                return item
-        return None
+            if item.get_cart_item_id() == cart_item_id:
+                item.is_selected = True
     
-    def get_cart_items(self):
-        return list(self._items)
+    def list_cart_items(self):
+        return self._items
     
     def place_order(self, customerID: int, items: list[CartItem], orderStatus: str, customerName: str, phoneNumber: str, shippingAddress: str, orderDate: str, totalPrice: float, db):
         insert_sql = """
-            INSERT INTO orderrecord
+            INSERT INTO order_record
               (CustomerID, OrderDate, OrderStatus, TotalPrice, CustomerName, PhoneNumber, ShippingAddress)
             VALUES
               (%s, %s, %s, %s, %s, %s, %s);
@@ -81,7 +77,7 @@ class Cart:
         else:
             new_order_id = int(first_row[0])
 
-        valid_pid_rows = db.query("SELECT ProductID FROM productgood;")
+        valid_pid_rows = db.query("SELECT ProductID FROM product_good;")
         valid_pids = { row["ProductID"] if isinstance(row, dict) else row[0]
                     for row in valid_pid_rows }
 
@@ -95,7 +91,7 @@ class Cart:
                 continue
 
             insert_item_sql = """
-                INSERT INTO orderitem
+                INSERT INTO order_item
                 (OrderID, ProductID, Quantity, UnitPrice)
                 VALUES
                 (%s, %s, %s, %s);
@@ -117,12 +113,4 @@ class Cart:
             shippingAddress=shippingAddress
         )
         return new_order
-    
-    def checkout(self):
-        if not self._items:
-            return 0
-        total = sum(item.getTotalPrice() for item in self._items)
-        self._items.clear()
-        self._reassign_id()
-        return total
     
