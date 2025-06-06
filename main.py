@@ -9,7 +9,7 @@ from classes.cart import Cart
 from classes.database import Database
 from classes.order import Order, OrderStatus
 from classes.payment import Payment
-from classes.cartItem import CartItem as CI
+from classes.itemContainer import CartItem as CI
 from classes.inboxMessage import InboxMessage
 from classes.invoice import Invoice
 from datetime import datetime
@@ -34,15 +34,15 @@ def login_ui():
     print("                    LOGIN                          ")
     print("# ==================================================\n")
 
-    identifier = input("Enter email or username   : ").strip()
+    email = input("Enter email: ").strip()
     password = input("Enter password: ").strip()
 
-    if not identifier or not password:
-        print("\nUsername/email or password cannot be empty. Try again.")
+    if not email or not password:
+        print("\nEmail or password cannot be empty. Try again.")
         input("\nPress Enter to continue…")
         return False
 
-    user = Account.login(identifier, password, _db)
+    user = Account.login(email, password, _db)
     if user:
         CURRENT_USER = user
         print("\nLogin successful.")
@@ -50,7 +50,7 @@ def login_ui():
         print("\nLogin failed.")
     input("\nPress Enter to continue…")
 
-def signup_ui(logInNewUser: bool = True):
+def signup_ui():
     global CURRENT_USER
     clear_screen()
     print("# ==================================================")
@@ -61,25 +61,16 @@ def signup_ui(logInNewUser: bool = True):
     streetAddress = input("Street Address: ").strip()
     username      = input("Username      : ").strip()
     password      = input("Password (≥8) : ").strip()
-    accountPrivilege = None
 
-    if re.match(r"^[^@]+@owner+\.[^@]+$", email):
-        new_user = ownerAccount.signup(accountPrivilege, email, streetAddress, username, password, _db)
-    elif re.match(r"^[^@]+@staff+\.[^@]+$", email):
-        new_user = staffAccount.signup(accountPrivilege, email, streetAddress, username, password, _db)
-    else:
-        new_user = customerAccount.signup(accountPrivilege, email, streetAddress, username, password, _db)
+    new_user = customerAccount.signup(email, streetAddress, username, password, _db)
     if not new_user:
         input("\nPress Enter to continue…")
         return False
-
-    if logInNewUser:
+    else:
         CURRENT_USER = new_user
         clear_screen()
         print(f"Account created! Logged in as '{new_user.username}'.")
-    else:
-        clear_screen()
-        print(f"Staff account '{new_user.username}' was successfully created.")
+
     input("\nPress Enter to continue…")
     return True
 
@@ -202,20 +193,33 @@ def checkout_ui(cart):
     print("#" + "=" * 50)
     print(f"{'ENTER SHIPPING DETAILS':^52}")
     print("#" + "=" * 50 + "\n")
-    full_name    = input("Full Name         : ").strip()
     phone_number = input("Phone Number      : ").strip()
-    address      = input("Shipping Address  : ").strip()
+    delivery_address = input("Delivery Address  : ").strip()
 
-    if not full_name or not phone_number or not address:
-        print("\nShipping details cannot be blank. Aborting checkout.")
+    if  not phone_number or not delivery_address:
+        print("\nDelivery details cannot be blank. Aborting checkout.")
         input("\nPress Enter to return to the menu…")
         return
 
     print("\nShipping info recorded successfully.\n")
 
+    order_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    new_order = cart.place_order(
+        customerID = CURRENT_USER.accountID,     
+        items = cart.get_cart_items(),        
+        orderStatus = "PENDING",                   
+        phoneNumber = phone_number,               
+        shippingAddress = delivery_address,                    
+        orderDate = order_date,                 
+        totalPrice = grand_total,                
+        db = _db                         
+    )
+
     choice = input("[1] Pay and complete checkout   [0] Cancel\n\nEnter choice: ").strip()
     if choice != "1":
         print("Checkout cancelled.")
+        new_order.orderStatus = "CANCELLED"
         input("\nPress Enter to return to the menu…")
         return
 
@@ -248,20 +252,6 @@ def checkout_ui(cart):
         input("\nPress Enter to return to the menu…")
         return
 
-    order_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-
-    new_order = cart.place_order(
-        customerID = CURRENT_USER.accountID,     
-        items = cart.get_cart_items(),        
-        orderStatus = "PENDING",                  
-        customerName = full_name,                  
-        phoneNumber = phone_number,               
-        shippingAddress = address,                    
-        orderDate = order_date,                 
-        totalPrice = grand_total,                
-        db = _db                         
-    )
-
     items = cart.get_cart_items()
     for item in items:
         prod = item.get_product()
@@ -269,7 +259,7 @@ def checkout_ui(cart):
         qty_ordered = item.get_quantity()
  
         update_sql = """
-            UPDATE productgood
+            UPDATE product_good
                SET StockQuantity = StockQuantity - %s
              WHERE ProductID = %s;
         """
@@ -429,7 +419,7 @@ def view_cart():
             continue
 
 def view_order_history():
-    if CURRENT_USER.accountPrivilege == 3:
+    if CURRENT_USER._privilege == 3:
         clear_screen()
         print("# ==================================================")
         print("                     MY ORDER                       ")
@@ -667,7 +657,7 @@ def staff_inbox():
                 elif raw_status == "CANCELLED":
                     select_items_sql = """
                     SELECT ProductID, Quantity
-                     FROM OrderItem
+                     FROM Order_Item
                      WHERE OrderID = %s;
                     """
                     row_items = _db.query(select_items_sql, (order_id,))
@@ -843,6 +833,7 @@ def main():
     while True:
         clear_screen()
         if CURRENT_USER is None:
+            print("Welcome Guest")
             guest_menu()
             choice = int(input("Enter choice: "))
             if choice == 1:
@@ -878,7 +869,8 @@ def main():
             else:
                 continue
 
-        elif CURRENT_USER.accountPrivilege == 3:
+        elif CURRENT_USER._privilege == 3:
+            print(f"Welcome {CURRENT_USER.username}")
             customer_menu()
             choice = input("Enter choice: ").strip()
             if choice == "1":
@@ -906,7 +898,7 @@ def main():
             else:
                 continue
 
-        elif CURRENT_USER.accountPrivilege == 2:
+        elif CURRENT_USER._privilege == 2:
             staff_menu()
             choice = int(input("Enter choice: "))
             if choice == 1:
@@ -926,7 +918,7 @@ def main():
             else:
                 continue
 
-        elif CURRENT_USER.accountPrivilege == 1:
+        elif CURRENT_USER._privilege == 1:
             owner_menu()
             choice = int(input("Enter choice: "))
             if choice == 1:
