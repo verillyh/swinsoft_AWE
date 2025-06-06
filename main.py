@@ -62,7 +62,7 @@ def signup_ui():
     username      = input("Username      : ").strip()
     password      = input("Password (≥8) : ").strip()
 
-    new_user = customerAccount.signup(email, streetAddress, username, password, _db)
+    new_user = CustomerAccount.signup(email, streetAddress, username, password, _db)
     if not new_user:
         input("\nPress Enter to continue…")
         return False
