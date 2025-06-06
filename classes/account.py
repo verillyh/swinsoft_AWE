@@ -184,6 +184,15 @@ class Account(InboxInterface):
 
         for msg in self._inbox:
             msg.show_inbox_message() 
+
+    def get_invoice_history():
+        pass
+
+    def get_order_history():
+        pass
+
+    def get_receipt_history():
+        pass
     
 class OwnerAccount(Account):
     def __init__(self, privilege: int, email, address, username, password, account_id = None):
