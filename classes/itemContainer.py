@@ -23,7 +23,7 @@ class CartItem(ItemContainer):
         return self.__cartItemID
 
     def get_product(self):
-        return self._product
+        return self.product
 
     def get_quantity(self):
         return self._quantity
