@@ -8,6 +8,9 @@ class ItemContainer(ABC):
         self.quantity = quantity
         self.total_price = total_price
 
+    def get_total_price(self):
+        return self.product["price"] * self.quantity
+
 class CartItem(ItemContainer):
     def __init__(self, product: list[Product], quantity: int, total_price, is_selected: bool = False):
         super().__init__(product, quantity, total_price)
@@ -27,10 +30,7 @@ class CartItem(ItemContainer):
 
     def change_quantity(self, new_qty: int):
         self._quantity = new_qty
-
-    def get_total_price(self):
-        return self._product["price"] * self._quantity
     
 class OrderItem(ItemContainer):
-    def __init(self, product: list[Product], quantity: int, total_price: float):
+    def __init__(self, product: list[Product], quantity: int, total_price: float):
         super().__init__(product, quantity, total_price)
