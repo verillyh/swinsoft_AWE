@@ -30,7 +30,7 @@ def Category(db):
 class Product:
     def __init__(self, name: str, description: str, price: float, quantity: int, category: Category, brand: Brand, productID: int = None):
         self.name = name
-        self.id = productID
+        self.product_id = productID
         self.description = description
         self.price = float(price)
         self.quantity = int(quantity)
@@ -39,7 +39,7 @@ class Product:
 
     @property
     def productID(self):
-        return self.id
+        return self.product_id
     
     @productID.setter
     def productID(self, value):
@@ -47,7 +47,7 @@ class Product:
     
     def __str__(self):
         return (
-            f"ID        : {self.id}\n"
+            f"ID        : {self.product_id}\n"
             f"Name      : {self.name}\n"
             f"Brand     : {self.brand.name}\n"
             f"Category  : {self.category.name}\n"

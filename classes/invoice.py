@@ -1,11 +1,9 @@
 from classes.order import Order
-from classes.account import CustomerAccount
+# from classes.account import CustomerAccount
 
 class Invoice:
     def __init__(self, orderID: int, customerID: int, amountDue: float, status: bool = False, invoiceID: int = None):
         self.invoice_id = invoiceID
-        self.order_id = Order(self.invoice_id)
-        self.customer_id = CustomerAccount(self.invoice_id)
         self.amountDue = amountDue
         self.is_paid = status
 

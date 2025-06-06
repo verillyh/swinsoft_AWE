@@ -2,13 +2,14 @@ import random
 import string
 
 class Payment:
-    def request_payment_from_vendor(self, cardNumber: str, monthExpiry: int, yearExpiry: int, cvv: int) -> str:
+    def request_payment_from_vendor(self, cardNumber: str, monthExpiry: int, yearExpiry: int, cvv: int):
         print("Requesting payment from vendor...")
         transaction_id = ''.join(random.choices(string.ascii_uppercase + string.digits, k=10))
         print(f"Transaction ID: {transaction_id}")
-        return transaction_id    
+        self.__validate_transaction(transaction_id)
+        return True 
     
-    def __validate_transaction(self, transaction_id: str) -> bool:
+    def __validate_transaction(self, transaction_id: str):
         print(f"Validating transaction {transaction_id}...")
         return True
 

@@ -14,10 +14,10 @@ class Cart:
 
     def clear_cart(self):
         self._items.clear()
-        self._reassignIDs()
+        self._reassign_id()
 
     def add_to_cart(self, product: Product, quantity: int):
-        pid = product.id
+        pid = product.product_id
         if quantity <= 0:
             return False
 
@@ -34,10 +34,10 @@ class Cart:
     
     def remove_cart_item(self, cart_item_id: int):
         for idx, item in enumerate(self._items):
-            if item.item_id == cart_item_id:
+            if item.get_cart_item_id() == cart_item_id:
                 del self._items[idx]
-                self._reassignIDs()
-    
+                self._reassign_id()
+
     def toggle_cart_item_selection(self, cart_item_id: int):
         for item in self._items:
             if item.item_id == cart_item_id:
@@ -83,9 +83,10 @@ class Cart:
                     for row in valid_pid_rows }
 
         for ci in items:
-            pid = ci.get_product()["id"]
+            prod = ci.get_product()
+            pid = prod.product_id
             qty = ci.quantity
-            price_each = ci.get_product()["price"]
+            price_each = prod.price
 
             if pid not in valid_pids:
                 print(f"Cannot insert orderitem: ProductID {pid} not found in productgood.")
@@ -105,17 +106,17 @@ class Cart:
                 print(f"Successfully inserted OrderItem for ProductID={pid}.")
 
         new_order = Order(
-            customerId=customerID,
+            customer_id=customerID,
             items=items,
-            orderStatus=OrderStatus.PENDING if orderStatus == "PENDING" else OrderStatus.PAID,
-            orderID=new_order_id,
-            phoneNumber=phoneNumber,
-            shippingAddress=shippingAddress
+            order_status=OrderStatus.PENDING if orderStatus == "PENDING" else OrderStatus.PAID,
+            order_id=new_order_id,
+            phone_number=phoneNumber,
+            delivery_address=shippingAddress
         )
 
         new_invoice = Invoice(new_order.order_id, new_order.customer_id, new_order.total_cost, new_order.orderStatus)
 
-        Cart.clear_cart()
+        Cart.clear_cart(self)
 
-        return new_invoice
+        return new_invoice, new_order_id
     

@@ -116,20 +116,21 @@ class Account(InboxInterface):
         db_email            = row["Email"]
 
         if db_privilege == "OWNER":
-            cls = OwnerAccount()
+            Subclass = OwnerAccount
         elif db_privilege == "STAFF":
-            cls = StaffAccount()
+            Subclass = StaffAccount
         else:
-            cls = CustomerAccount()
+            Subclass = CustomerAccount
 
-        user = cls(
-                db_privilege,
-                db_email,
-                db_street,
-                db_username,
-                db_password_hashed,
-                db_account_id
-            )
+        user = Subclass(
+            db_privilege,      
+            db_email,              
+            db_street,            
+            db_username,           
+            db_password_hashed,   
+            db_account_id
+        )
+
         return user
         
     def modify_account_detail(self, field: str, new_value: str, db):
@@ -221,6 +222,20 @@ class OwnerAccount(Account):
         delete_sql = f"DELETE FROM account WHERE AccountID = {pid} AND AccountType = 'STAFF';"
         db.query(delete_sql)
         return True
+    
+    def list_staff(self, db):
+        rows = db.query("SELECT AccountID, Email, StreetAddress, UserName FROM account WHERE AccountType = 'STAFF';")
+        staff_list = []
+        for row in rows:
+            staff_str = (
+                f"ID: {row['AccountID']} | "
+                f"Email: {row['Email']} | "
+                f"Address: {row['StreetAddress']} | "
+                f"Username: {row['UserName']}"
+            )
+            staff_list.append(staff_str)
+
+        return staff_list
 
 class StaffAccount(Account):
     def __init__(self, privilege: int, email, address, username, password, account_id = None):

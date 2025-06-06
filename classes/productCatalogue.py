@@ -11,8 +11,8 @@ class ProductCatalogue:
     def __init__(self):
         if not hasattr(self, "_initialized"):
             self._initialized = True
-        self._brand_filter = list[Brand] = []
-        self._category_filter = list[Category] = []
+        self._brand_filter = []
+        self._category_filter = []
 
     def __row_to_product(self, row: tuple, db):
         (product_id, product_name, product_desc, unit_price, stock_qty, cat_name, brand_name) = row
@@ -36,7 +36,7 @@ class ProductCatalogue:
         except ValueError:
             return False
 
-        delete_sql = f"DELETE FROM product_good WHERE ProductID = {pid};"
+        delete_sql = f"UPDATE product_good SET IsActive = 0 WHERE ProductID = {pid};"
         db.query(delete_sql)
         return True
 
@@ -64,14 +64,6 @@ class ProductCatalogue:
             return None
 
         new_product_id = row[0]
-        # first = row[0]
-        # if isinstance(first, tuple):
-        #     new_product_id = first[0]
-        # elif isinstance(first, dict):
-        #     new_product_id = list(first.values())[0]
-        # else:
-        #     print("Unexpected format for LAST_INSERT_ID.")
-        #     return None
 
         new_product = Product(
             name=productName,
@@ -96,7 +88,9 @@ class ProductCatalogue:
             b.BrandName 
         FROM product_good pg
         JOIN category c ON pg.CategoryID = c.CategoryID
-        JOIN brand b ON pg.BrandID = b.BrandID;
+        JOIN brand b ON pg.BrandID = b.BrandID
+        WHERE pg.IsActive != 0
+        ORDER BY pg.ProductID;
         """
         raw = db.query(select_sql)
 
@@ -121,7 +115,16 @@ class ProductCatalogue:
                 continue
             prod_obj = self.__row_to_product(tup, db)
             products.append(prod_obj)
-        return print(products)
+
+        if not products:
+            return "No products available.\n"
+        
+        lines = []
+        for prod in products:
+            lines.append(str(prod))
+            lines.append("-" * 40)
+
+        return "\n".join(lines)
     
     def search_product(self, keyword: str, db):
         kw = keyword.strip().lower().replace("'", "''")
@@ -138,10 +141,12 @@ class ProductCatalogue:
         JOIN category c ON pg.CategoryID = c.CategoryID
         JOIN brand b ON pg.BrandID = b.BrandID
         WHERE 
-        LOWER(pg.Name)              LIKE '%{kw}%' 
+        (LOWER(pg.Name)              LIKE '%{kw}%' 
         OR LOWER(pg.Description)    LIKE '%{kw}%' 
         OR LOWER(c.CategoryName)    LIKE '%{kw}%' 
-        OR LOWER(b.BrandName)       LIKE '%{kw}%';
+        OR LOWER(b.BrandName)       LIKE '%{kw}%')
+        AND pg.IsActive != 0
+        ORDER BY pg.ProductID;
         """
         raw = db.query(select_sql)
 
@@ -189,7 +194,7 @@ class ProductCatalogue:
             FROM product_good pg
             JOIN category c ON pg.CategoryID = c.CategoryID
             JOIN brand b ON pg.BrandID = b.BrandID
-            WHERE pg.ProductID = %s
+            WHERE pg.ProductID = %s AND pg.IsActive != 0
             LIMIT 1;
         """
         params = (pid,)
@@ -254,6 +259,7 @@ class ProductCatalogue:
             params     = (newValue, pid)
 
         db.query(update_sql, params)
+        return True
 
     def add_catalogue_filter(self, brand: Brand = None, category: Category = None):
         self._brand_filter = brand

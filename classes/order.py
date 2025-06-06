@@ -11,7 +11,7 @@ class OrderStatus(Enum):
     CANCELLED = "CANCELLED"
 
 class Order:
-    def __init__(self, customer_id: int, items: list[OrderItem], orderStatus: OrderStatus = OrderStatus.PENDING, order_id = None, *, phone_number: str, delivery_address: str):
+    def __init__(self, customer_id: int, items: list[OrderItem], order_status: OrderStatus = OrderStatus.PENDING, order_id = None, *, phone_number: str, delivery_address: str):
         self.order_id = order_id
         self.customer_id = customer_id
         self.items = items
@@ -20,9 +20,9 @@ class Order:
         self.delivery_address = delivery_address
         self.total_cost = sum(item.get_total_price() for item in items)
 
-        if not isinstance(orderStatus, OrderStatus):
+        if not isinstance(order_status, OrderStatus):
             raise ValueError("orderStatus must be an instance of OrderStatus Enum")
-        self.orderStatus = orderStatus
+        self.orderStatus = order_status
 
     @property
     def orderID(self):
@@ -34,11 +34,11 @@ class Order:
 
     @property
     def orderStatus(self):
-        return self.orderStatus
+        return self.order_status
 
     @orderStatus.setter
     def orderStatus(self, value):
-        self.orderStatus = value
+        self.order_status = value
 
     def get_total_cost(self):
         return self.totalCost
@@ -46,14 +46,13 @@ class Order:
     def get_items(self):
         return self.items
 
-    def change_status(self, db, new_status: OrderStatus):
+    def change_status(db, order_id: int, new_status: OrderStatus):
         update_sql = """
             UPDATE order_record
             SET OrderStatus = %s
             WHERE OrderID = %s;
         """
-        db.query(update_sql, (new_status.value, self.order_id))
-        self.orderStatus = new_status
+        db.query(update_sql, (new_status.value, order_id))
 
         # if new_status == OrderStatus.PAID:
         #     staff_message = f"Order #{self.order_id} has been marked PAID."
@@ -112,10 +111,9 @@ class Order:
                 data["customerID"],
                 data["items"],
                 data["status"],
-                orderID=data["orderID"],
-                customername="",
-                phoneNumber="",
-                shippingAddress=data["shipping"],
+                order_id=data["orderID"],
+                phone_number="",
+                delivery_address=data["shipping"],
             )
             order._Order__datetime = data["orderDate"]
             result.append(order)
@@ -169,10 +167,9 @@ class Order:
                 data["customerID"],
                 data["items"],
                 data["status"],
-                orderID=data["orderID"],
-                customername="",
-                phoneNumber="",
-                shippingAddress=data["shipping"],
+                order_id=data["orderID"],
+                phone_number="",
+                delivery_address=data["shipping"],
             )
             order._Order__datetime = data["orderDate"]
             result.append(order)
@@ -184,12 +181,12 @@ class Order:
         lines.append(f"Date/Time  : {self.datetime.strftime('%Y-%m-%d %H:%M:%S')}")
         lines.append(f"CustomerID : {self.customer_id}")
         lines.append(f"Status     : {self.orderStatus.value}")
-        lines.append(f"Total Cost : ${self.totalCost:.2f}")
+        lines.append(f"Total Cost : ${self.total_cost:.2f}")
         lines.append("Items:")
-        for ci in self.__items:
-            prod = ci.getProduct()
+        for ci in self.items:
+            prod = ci.get_product()
             name = prod["name"]
-            qty = ci.getQuantity()
+            qty = ci.get_quantity()
             price = prod["price"]
             lines.append(f"  - {name} x{qty} @ ${price:.2f} each → ${qty*price:.2f}")
         return "\n".join(lines)
